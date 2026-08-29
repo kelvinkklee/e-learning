@@ -1,5 +1,5 @@
-const CACHE = 'hkpl-v3';
-const ASSETS = ['./','./index.html','./data.js','./app.js','./manifest.json','./icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-192.png','./icons/icon-maskable-512.png'];
+const CACHE = 'hkpl-v4';
+const ASSETS = ['./','./index.html','./data.js','./app.js','./game.css','./manifest.json','./icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-192.png','./icons/icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(()=>self.skipWaiting()));

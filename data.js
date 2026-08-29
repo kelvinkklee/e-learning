@@ -15,7 +15,7 @@ const I18N = {
     heroSub:"內容對照香港教育局《小學教育課程指引》(2024) 及各科課程指引設計，覆蓋小一至小六。",
     b1:"📘 中文 · 英文 · 數學 · 常識", b2:"🎯 6 個年級",
     b3:"🀄 繁中 / English 雙語", b4:"📈 自動記錄進度",
-    pickGrade:"揀年級", pickSubject:"揀科目",
+    pickGrade:"揀年級", pickSubject:"揀科目", tools:"學習工具",
     back:"返主頁", units:"學習單元", backUnit:"返單元",
     foot1:"內容依據：教育局《小學教育課程指引》(2024)、《中國語文課程指引（小一至小六）》(2023)、小學數學科學習內容(2017)、English Language Curriculum Guide (P1–6) 2025。",
     foot2:"本 App 為學習輔助工具，正式課程以教育局官方文件為準。",
@@ -41,6 +41,19 @@ const I18N = {
     qTypeChoice:"選擇題", qTypeFill:"填充題", qTypeMatch:"配對題", qTypeSort:"排序題", qTypeListen:"聽音題",
     fillHint:"填上答案", matchHint:"點擊左右配對", sortHint:"按正確次序排列（點選 1→2→3）", listenHint:"聽一聽，揀出正確答案",
     checkFill:"檢查", submitSort:"完成排序", playAgain:"再聽一次",
+    // 阶段3：学习闭环 + 报告
+    wrongBook:"錯題本", reviewMode:"溫習模式", dailyChallenge:"每日挑戰", parentReport:"家長報告",
+    wrongBookDesc:"收集答錯題目", reportSub:"睇學習進度",
+    wrongEmpty:"暫時冇錯題，好叻呀！🎉", wrongCount:"錯題", redoWrong:"重做錯題", clearWrong:"清空錯題本",
+    reviewDesc:"只做之前答錯嘅題目，鞏固弱項", reviewStart:"開始溫習",
+    dailyDesc:"每日 10 題，堅持打卡攞獎勵", dailyStart:"開始今日挑戰", dailyDone:"今日已完成！", dailyStreak:"連續打卡",
+    reportOverall:"整體完成度", reportAccuracy:"平均正確率", reportTimes:"練習次數", reportSubject:"各科掌握度",
+    reportHistory:"最近練習記錄", reportNoData:"暫時冇練習記錄", reportClear:"清除記錄",
+    wrongRemoved:"已從錯題本移除", wrongCleared:"錯題本已清空",
+    dailyCompleted:"✅ 今日挑戰完成！", dailyAlready:"今日已完成挑戰，聽日再嚟！",
+    // 阶段4：AI 批量出题
+    aiBatchTitle:"AI 大量出題", aiBatchSub:"一次過生成大量題目並儲存，之後可以離線刷題", aiBatchCount:"題數", aiBatchGen:"批量生成", aiBatchCached:"已儲存題庫", aiBatchStart:"開始刷題", aiBatchDelete:"刪除", aiBatchNone:"暫冇已儲存嘅 AI 題庫", aiBatchProgress:"已生成", aiBatchTotal:"題",
+    batch:"批量", cached:"已快取",
   },
   en: {
     appName:"HK Primary Learning", lang:"English",
@@ -48,7 +61,7 @@ const I18N = {
     heroSub:"Aligned to the EDB Primary Education Curriculum Guide (2024) and subject curriculum guides, covering P1–P6.",
     b1:"📘 Chinese · English · Maths · General Studies", b2:"🎯 6 levels",
     b3:"🀄 Bilingual (中文 / English)", b4:"📈 Auto-saved progress",
-    pickGrade:"Choose a level", pickSubject:"Choose a subject",
+    pickGrade:"Choose a level", pickSubject:"Choose a subject", tools:"Learning Tools",
     back:"Back to home", units:"Learning units", backUnit:"Back to units",
     foot1:"Aligned to: EDB Primary Education Curriculum Guide (2024), Chinese Language Curriculum Guide (P1–6) 2023, Primary Maths Learning Content (2017), English Language Curriculum Guide (P1–6) 2025.",
     foot2:"This app is a learning aid; the official EDB documents remain authoritative.",
@@ -74,6 +87,19 @@ const I18N = {
     qTypeChoice:"Multiple choice", qTypeFill:"Fill in the blank", qTypeMatch:"Matching", qTypeSort:"Ordering", qTypeListen:"Listening",
     fillHint:"Type your answer", matchHint:"Tap to match left & right", sortHint:"Arrange in correct order (tap 1→2→3)", listenHint:"Listen and choose",
     checkFill:"Check", submitSort:"Done", playAgain:"Play again",
+    // Phase 3: learning loop + report
+    wrongBook:"Mistake Book", reviewMode:"Review Mode", dailyChallenge:"Daily Challenge", parentReport:"Parent Report",
+    wrongBookDesc:"Collect mistakes", reportSub:"Track progress",
+    wrongEmpty:"No mistakes yet — great job! 🎉", wrongCount:"mistakes", redoWrong:"Redo mistakes", clearWrong:"Clear all",
+    reviewDesc:"Practise only the questions you got wrong", reviewStart:"Start review",
+    dailyDesc:"10 questions a day, keep your streak!", dailyStart:"Start today", dailyDone:"Done today!", dailyStreak:"Streak",
+    reportOverall:"Overall progress", reportAccuracy:"Avg accuracy", reportTimes:"Sessions", reportSubject:"Mastery by subject",
+    reportHistory:"Recent sessions", reportNoData:"No practice records yet", reportClear:"Clear records",
+    wrongRemoved:"Removed from mistake book", wrongCleared:"Mistake book cleared",
+    dailyCompleted:"✅ Today's challenge done!", dailyAlready:"Already done today, come back tomorrow!",
+    // Phase 4: AI batch
+    aiBatchTitle:"AI Bulk Generate", aiBatchSub:"Generate many questions at once and save them for offline practice", aiBatchCount:"Questions", aiBatchGen:"Generate", aiBatchCached:"Saved banks", aiBatchStart:"Start", aiBatchDelete:"Delete", aiBatchNone:"No saved AI banks yet", aiBatchProgress:"Generated", aiBatchTotal:"questions",
+    batch:"Bulk", cached:"Cached",
   }
 };
 

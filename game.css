@@ -339,3 +339,89 @@ h1,h2,h3{font-weight:800}
   .subjects{grid-template-columns:repeat(2,1fr)}
   .wrap{padding:14px 12px 90px}
 }
+
+/* ============================================================
+   階段 3+4：學習工具 / 錯題本 / 報告 / 每日挑戰 / AI 批量
+   ============================================================ */
+
+/* ---------- 首頁工具導航 ---------- */
+.tools{display:grid; grid-template-columns:repeat(4,1fr); gap:12px}
+.tool{
+  background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow);
+  border:2px solid transparent; transition:.15s; cursor:pointer; text-align:left;
+}
+.tool:hover{border-color:var(--brand); transform:translateY(-2px)}
+.tool-ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:22px;margin-bottom:10px}
+.tool-nm{font-weight:800; font-size:15px}
+.tool-desc{font-size:12px; color:var(--muted); margin-top:2px; line-height:1.4}
+
+/* ---------- 通用空狀態 ---------- */
+.empty-card{
+  text-align:center; color:var(--muted); padding:40px 20px; font-size:16px;
+  background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); border:2px dashed var(--line);
+}
+
+/* ---------- 錯題本 ---------- */
+.wrong-head{display:flex; align-items:center; gap:10px; margin-bottom:14px}
+.wrong-head .spacer{flex:1}
+.wrong-item{
+  background:var(--card); border-radius:14px; padding:15px 16px; margin-bottom:11px;
+  box-shadow:var(--shadow); border-left:5px solid var(--bad); animation:slideIn .3s ease;
+}
+.wrong-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.wrong-top .spacer{flex:1}
+.wrong-del{font-size:16px; color:var(--muted); padding:4px 10px; border-radius:8px; font-weight:700}
+.wrong-del:hover{background:#fdecec; color:var(--bad)}
+.wrong-q{font-weight:700; font-size:15px; margin-top:8px}
+.wrong-qe{font-size:13px; color:var(--muted); margin-top:2px}
+.wrong-ans{font-size:13px; color:var(--ok); font-weight:700; margin-top:6px}
+
+/* ---------- 每日挑戰 ---------- */
+.streak-row{display:flex; justify-content:center; margin-top:12px}
+.streak-badge{
+  display:inline-flex; align-items:center; gap:6px; padding:8px 18px; border-radius:999px;
+  background:linear-gradient(135deg,#fff7e6,#fde68a); color:#b45309; font-weight:900; font-size:15px;
+  box-shadow:0 4px 12px rgba(251,191,36,.3);
+}
+.streak-cal{
+  display:grid; grid-template-columns:repeat(14,1fr); gap:6px; margin-top:16px;
+  background:var(--card); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow);
+}
+.streak-day{
+  aspect-ratio:1; border-radius:10px; background:#f0f4fb; display:grid; place-items:center;
+  font-size:12px; font-weight:700; color:var(--muted);
+}
+.streak-day.done{background:linear-gradient(135deg,#34d399,#18a058); color:#fff}
+.streak-day.today{border:2px solid var(--brand); box-shadow:0 0 0 3px rgba(31,111,235,.15)}
+
+/* ---------- 家長報告 ---------- */
+.report-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:6px}
+.stat{background:var(--card); border-radius:var(--radius); padding:18px; text-align:center; box-shadow:var(--shadow)}
+.stat-num{font-size:30px; font-weight:900; background:linear-gradient(135deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat-lbl{font-size:12px; color:var(--muted); font-weight:700; margin-top:4px}
+
+.mastery-row{display:flex; align-items:center; gap:12px; background:var(--card); border-radius:14px; padding:13px 16px; margin-bottom:10px; box-shadow:var(--shadow)}
+.mastery-ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:18px;font-weight:800;flex-shrink:0}
+.mastery-nm{font-weight:700; font-size:14px; width:60px; flex-shrink:0}
+.mastery-bar{flex:1; height:12px; background:#edf0f7; border-radius:999px; overflow:hidden}
+.mastery-bar .fill{height:100%; border-radius:999px; transition:.4s}
+.mastery-pct{font-size:13px; font-weight:800; color:var(--ink); width:42px; text-align:right}
+
+.log-list{display:flex; flex-direction:column; gap:10px}
+.log-item{background:var(--card); border-radius:12px; padding:12px 15px; box-shadow:var(--shadow); border-left:4px solid var(--brand)}
+.log-top{display:flex; align-items:center; gap:8px}
+.log-top .spacer{flex:1}
+.log-time{font-size:12px; color:var(--muted)}
+.log-score{font-size:14px; font-weight:700; margin-top:4px}
+
+/* ---------- AI 批量出題 ---------- */
+.batch-row{display:flex; gap:12px}
+.batch-progress{margin-top:14px}
+.batch-progress .bar{height:12px; background:#edf0f7; border-radius:999px; overflow:hidden}
+.batch-progress .fill{height:100%; background:linear-gradient(90deg,var(--brand),var(--brand2)); transition:.3s; border-radius:999px}
+.batch-progress .txt{display:block; text-align:center; font-size:12px; font-weight:700; color:var(--muted); margin-top:6px}
+
+.bank-item{background:var(--card); border-radius:14px; padding:15px 16px; margin-bottom:11px; box-shadow:var(--shadow); border-left:5px solid var(--brand); animation:slideIn .3s ease}
+.bank-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.bank-top .spacer{flex:1}
+.bank-title{font-weight:800; font-size:15px; margin-top:8px}

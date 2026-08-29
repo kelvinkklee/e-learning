@@ -56,9 +56,13 @@ function setProgress(subject, grade, done, total, score, best){
 
 /* ---------- 導航 ---------- */
 function go(page){
-  ['home','units','quiz','result','settings'].forEach(p => $(p).classList.add('hidden'));
+  ['home','units','quiz','result','settings','wrongbook','review','daily','report'].forEach(p => $(p).classList.add('hidden'));
   $(page).classList.remove('hidden');
   if(page === 'settings') loadAISettings();
+  if(page === 'wrongbook') renderWrongBook();
+  if(page === 'review') renderReview();
+  if(page === 'daily') renderDaily();
+  if(page === 'report') renderReport();
   window.scrollTo({ top:0, behavior:'smooth' });
 }
 
@@ -355,7 +359,7 @@ function choose(i){
   renderQuestion();
 }
 
-/* 統一答題後處理：計分、金幣、連擊、音效 */
+/* 統一答題後處理：計分、金幣、連擊、音效、錯題記錄 */
 function afterAnswer(correct){
   if(correct){
     state.correct++;
@@ -364,9 +368,11 @@ function afterAnswer(correct){
     playSound('correct');
     spawnConfetti();
     if(STREAK >= 2){ showCombo(STREAK); }
+    removeWrongQuestion(state.quiz[state.idx], state.subject, state.grade);
   } else {
     STREAK = 0;
     playSound('wrong');
+    addWrongQuestion(state.quiz[state.idx], state.subject, state.grade);
   }
 }
 
@@ -521,7 +527,28 @@ function nextQ(){
 function finishQuiz(){
   const total = state.quiz.length;
   const score = state.correct;
-  setProgress(state.subject, state.grade, total, total, score, score);
+  if(state.subject && state.grade){
+    setProgress(state.subject, state.grade, total, total, score, score);
+  }
+
+  // 記錄練習日誌（家長報告用）
+  const logTitle = state._daily
+    ? '📅 ' + t('dailyChallenge')
+    : (subjectName(state.subject) + ' · ' + t(state.grade) + (state._ai ? ' · AI' : ''));
+  addLog({
+    time: Date.now(),
+    subject: state._daily ? null : state.subject,
+    title: logTitle,
+    correct: score,
+    total: total,
+  });
+
+  // 每日挑戰完成標記
+  if(state._daily){
+    const rec = getDailyRecord();
+    rec[todayKey()] = { done: true, score, total };
+    localStorage.setItem('hkpl_daily', JSON.stringify(rec));
+  }
 
   const pct = score / total;
   let cls = 'low', stars = '⭐', msg = t('starsOk');
@@ -533,16 +560,21 @@ function finishQuiz(){
     <div class="score ${cls}">${score} / ${total}</div>
     <div class="stars">${stars}</div>
     <h2 style="margin:8px 0">${msg}</h2>
-    <p>${subjectName(state.subject)} · ${t(state.grade)}</p>
+    <p>${state._daily ? t('dailyChallenge') : (subjectName(state.subject) + ' · ' + t(state.grade))}</p>
     <div class="btn-row">
-      <button class="btn pri" onclick="startQuiz()">${t('retry')}</button>
-      <button class="btn ghost" onclick="aiAnalyze()">🧠 ${t('aiAnalyze')}</button>
+      ${state._daily
+        ? `<button class="btn pri" onclick="go('daily')">📅 ${t('dailyDone')}</button>`
+        : `<button class="btn pri" onclick="startQuiz()">${t('retry')}</button>
+           <button class="btn ghost" onclick="aiAnalyze()">🧠 ${t('aiAnalyze')}</button>`}
     </div>
     <div class="btn-row" style="margin-top:10px">
-      <button class="btn ghost" onclick="go('units')">${t('backUnit')}</button>
+      ${state._daily ? '' : `<button class="btn ghost" onclick="go('units')">${t('backUnit')}</button>`}
       <button class="btn ghost" onclick="go('home')">${t('back')}</button>
     </div>
   `;
+
+  state._daily = false;
+  state._ai = false;
 }
 
 /* ---------- 安裝（PWA） ---------- */
@@ -665,6 +697,9 @@ function loadAISettings(){
   $('aiKey').value = s.key || '';
   const st = $('aiStatus');
   if(st){ st.className = 'ai-status'; st.textContent=''; }
+  // 階段4：初始化批量出題表單 + 已儲存題庫列表
+  initAiBatchForm();
+  renderAiBankList();
 }
 
 function onProviderChange(){
@@ -832,6 +867,7 @@ async function aiGenerate(){
     state.idx = 0;
     state.answers = new Array(newQs.length).fill(null);
     state.correct = 0;
+    state._ai = true;
     go('quiz');
     $('quizTitle').textContent = `${subjectName(state.subject)} · ${gradeZh} · AI`;
     renderQuestion();
@@ -1030,4 +1066,463 @@ function initMascot(){
     <circle cx="34" cy="80" r="5" fill="#f97316"/>
     <circle cx="66" cy="80" r="5" fill="#f97316"/>
   </svg>`;
+}
+
+/* ============================================================
+   階段 3：學習閉環（錯題本 / 溫習 / 每日挑戰 / 家長報告）
+   ============================================================ */
+
+/* ---------- 錯題本資料層 ---------- */
+function getWrongBook(){
+  try{ return JSON.parse(localStorage.getItem('hkpl_wrong') || '[]'); }
+  catch(e){ return []; }
+}
+function setWrongBook(arr){
+  localStorage.setItem('hkpl_wrong', JSON.stringify(arr));
+}
+function addWrongQuestion(q, subject, grade){
+  if(!q) return;
+  const book = getWrongBook();
+  const idx = book.findIndex(w => w.subject===subject && w.grade===grade && w.q===q.q && (w.type||'choice')===(q.type||'choice'));
+  const rec = {
+    subject, grade, type: q.type || 'choice',
+    q: q.q || '', qe: q.qe || '',
+    o: q.o || null, a: q.a != null ? q.a : null,
+    pairs: q.pairs || null,
+    text: q.text || '', lang: q.lang || '',
+    ex: q.ex || '', exe: q.exe || '',
+    wrongTime: Date.now(),
+  };
+  if(idx >= 0){ book[idx] = rec; }
+  else { book.push(rec); }
+  setWrongBook(book);
+}
+function removeWrongQuestion(q, subject, grade){
+  if(!q) return;
+  const book = getWrongBook();
+  const next = book.filter(w => !(w.subject===subject && w.grade===grade && w.q===q.q && (w.type||'choice')===(q.type||'choice')));
+  if(next.length !== book.length) setWrongBook(next);
+}
+function removeWrongByIndex(i){
+  const book = getWrongBook();
+  book.splice(i,1);
+  setWrongBook(book);
+}
+
+/* ---------- 錯題本頁面 ---------- */
+function renderWrongBook(){
+  const box = $('wrongList');
+  const book = getWrongBook();
+  if(!book.length){
+    box.innerHTML = '<div class="empty-card">🎉<br>' + t('wrongEmpty') + '</div>';
+    return;
+  }
+  let html = '<div class="wrong-head">' +
+    '<span class="tag">📕 ' + book.length + ' ' + t('wrongCount') + '</span>' +
+    '<button class="btn ghost sm" onclick="clearWrongBook()">🗑 ' + t('clearWrong') + '</button></div>';
+  html += book.map((w,i) => {
+    const s = SUBJECTS.find(x=>x.id===w.subject);
+    const color = s ? s.color : '#1f6feb';
+    const typeMeta = QTYPE[w.type] || QTYPE.choice;
+    const typeLabel = LANG==='zh' ? typeMeta.zh : typeMeta.en;
+    return '<div class="wrong-item" style="border-left-color:' + color + '">' +
+      '<div class="wrong-top">' +
+        '<span class="tag" style="background:' + color + '22;color:' + color + '">' + (s?subjectName(s.id):w.subject) + ' · ' + t(w.grade) + '</span>' +
+        '<span class="tag">' + typeMeta.ic + ' ' + typeLabel + '</span>' +
+        '<span class="spacer"></span>' +
+        '<button class="wrong-del" onclick="removeWrongByIndex(' + i + ');renderWrongBook();installToast(t(\'wrongRemoved\'))">✕</button>' +
+      '</div>' +
+      '<div class="wrong-q">' + (w.q || '') + '</div>' +
+      (w.qe ? '<div class="wrong-qe">' + w.qe + '</div>' : '') +
+      (w.o ? '<div class="wrong-ans">✅ ' + w.o[w.a] + '</div>' : '') +
+    '</div>';
+  }).join('');
+  html += '<div class="btn-row"><button class="btn pri" onclick="startReview()">🔁 ' + t('redoWrong') + '</button></div>';
+  box.innerHTML = html;
+}
+
+function clearWrongBook(){
+  setWrongBook([]);
+  renderWrongBook();
+  installToast(t('wrongCleared'));
+}
+
+/* ---------- 溫習模式 ---------- */
+function renderReview(){
+  const box = $('reviewBox');
+  const book = getWrongBook();
+  if(!book.length){
+    box.innerHTML = '<div class="empty-card">🎉<br>' + t('wrongEmpty') + '</div>';
+    return;
+  }
+  box.innerHTML =
+    '<div class="qcard" style="text-align:center">' +
+      '<div style="font-size:40px">🔁</div>' +
+      '<p style="color:var(--muted);margin:8px 0">' + t('reviewDesc') + '</p>' +
+      '<div class="tag" style="display:inline-block">📕 ' + book.length + ' ' + t('wrongCount') + '</div>' +
+    '</div>' +
+    '<div class="btn-row"><button class="btn pri" onclick="startReview()">▶ ' + t('reviewStart') + '</button></div>';
+}
+
+function startReview(){
+  const book = getWrongBook();
+  if(!book.length){ installToast(t('wrongEmpty')); return; }
+  state.quiz = book.map(w => ({
+    type: w.type, q: w.q, qe: w.qe, o: w.o, a: w.a, pairs: w.pairs, text: w.text, lang: w.lang, ex: w.ex, exe: w.exe,
+  }));
+  state.idx = 0;
+  state.answers = new Array(state.quiz.length).fill(null);
+  state.correct = 0;
+  state.sortDraft = null;
+  matchState = null;
+  go('quiz');
+  $('quizTitle').textContent = '🔁 ' + t('reviewMode');
+  renderQuestion();
+}
+
+/* ---------- 每日挑戰 ---------- */
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function getDailyRecord(){
+  try{ return JSON.parse(localStorage.getItem('hkpl_daily') || '{}'); }catch(e){ return {}; }
+}
+function renderDaily(){
+  const box = $('dailyBox');
+  const rec = getDailyRecord();
+  const today = todayKey();
+  const done = rec[today] && rec[today].done;
+  const streak = calcStreak(rec);
+
+  let html = '<div class="qcard" style="text-align:center">' +
+    '<div style="font-size:44px">📅</div>' +
+    '<h2 style="margin:8px 0">' + t('dailyChallenge') + '</h2>' +
+    '<p style="color:var(--muted);margin:4px 0">' + t('dailyDesc') + '</p>' +
+    '<div class="streak-row"><span class="streak-badge">🔥 ' + streak + ' ' + t('dailyStreak') + '</span></div>' +
+  '</div>';
+
+  if(done){
+    html += '<div class="btn-row"><button class="btn pri" disabled>✅ ' + t('dailyDone') + '</button></div>';
+    if(rec[today].score != null){
+      html += '<div class="qcard" style="text-align:center"><div class="score" style="font-size:40px;font-weight:900;color:var(--ok)">' + rec[today].score + ' / ' + rec[today].total + '</div><p style="color:var(--muted)">' + t('resultTitle') + '</p></div>';
+    }
+  } else {
+    html += '<div class="btn-row"><button class="btn pri" onclick="startDaily()">▶ ' + t('dailyStart') + '</button></div>';
+  }
+
+  html += renderStreakCalendar(rec);
+  box.innerHTML = html;
+}
+
+function calcStreak(rec){
+  let streak = 0;
+  const d = new Date();
+  const today = todayKey();
+  if(!rec[today] || !rec[today].done){ d.setDate(d.getDate() - 1); }
+  while(true){
+    const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    if(rec[k] && rec[k].done){ streak++; d.setDate(d.getDate() - 1); }
+    else break;
+  }
+  return streak;
+}
+
+function renderStreakCalendar(rec){
+  const days = [];
+  const d = new Date();
+  for(let i=13;i>=0;i--){
+    const dd = new Date(d);
+    dd.setDate(dd.getDate() - i);
+    const k = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0') + '-' + String(dd.getDate()).padStart(2,'0');
+    days.push({ k, day: dd.getDate(), done: !!(rec[k] && rec[k].done), isToday: i===0 });
+  }
+  return '<div class="streak-cal">' + days.map(x =>
+    '<div class="streak-day ' + (x.done?'done':'') + ' ' + (x.isToday?'today':'') + '">' + x.day + '</div>'
+  ).join('') + '</div>';
+}
+
+function startDaily(){
+  const rec = getDailyRecord();
+  const today = todayKey();
+  if(rec[today] && rec[today].done){ installToast(t('dailyAlready')); return; }
+
+  const seed = parseInt(today.replace(/-/g,''), 10);
+  const all = [];
+  GRADES.forEach(g => SUBJECTS.forEach(s => {
+    (QUESTIONS[s.id][g] || []).forEach(q => all.push(Object.assign({}, q, { _subject: s.id, _grade: g })));
+  }));
+  const picked = shuffleCopy(all, seed).slice(0, 10);
+
+  state.quiz = picked;
+  state.idx = 0;
+  state.answers = new Array(picked.length).fill(null);
+  state.correct = 0;
+  state.sortDraft = null;
+  matchState = null;
+  state._daily = true;
+
+  go('quiz');
+  $('quizTitle').textContent = '📅 ' + t('dailyChallenge');
+  renderQuestion();
+}
+
+/* ---------- 家長報告 ---------- */
+function getLogs(){
+  try{ return JSON.parse(localStorage.getItem('hkpl_logs') || '[]'); }catch(e){ return []; }
+}
+function addLog(entry){
+  const logs = getLogs();
+  logs.push(entry);
+  if(logs.length > 200) logs.splice(0, logs.length - 200);
+  localStorage.setItem('hkpl_logs', JSON.stringify(logs));
+}
+
+function renderReport(){
+  const box = $('reportBox');
+  const logs = getLogs();
+
+  const totalDone = SUBJECTS.reduce((sum,s)=>sum + GRADES.reduce((gsum,g)=>gsum+(getProgress(s.id,g).done||0),0),0);
+  const totalQ = SUBJECTS.reduce((sum,s)=>sum + GRADES.reduce((gsum,g)=>gsum+(QUESTIONS[s.id][g]?QUESTIONS[s.id][g].length:0),0),0);
+
+  const totalCorrect = logs.reduce((s,l)=>s+(l.correct||0),0);
+  const totalAnswered = logs.reduce((s,l)=>s+(l.total||0),0);
+  const acc = totalAnswered ? Math.round(totalCorrect/totalAnswered*100) : 0;
+  const overall = totalQ ? Math.round(totalDone/totalQ*100) : 0;
+
+  let html =
+    '<div class="report-stats">' +
+      '<div class="stat"><div class="stat-num">' + overall + '%</div><div class="stat-lbl">' + t('reportOverall') + '</div></div>' +
+      '<div class="stat"><div class="stat-num" style="color:var(--ok)">' + acc + '%</div><div class="stat-lbl">' + t('reportAccuracy') + '</div></div>' +
+      '<div class="stat"><div class="stat-num" style="color:var(--accent)">' + logs.length + '</div><div class="stat-lbl">' + t('reportTimes') + '</div></div>' +
+    '</div>';
+
+  html += '<div class="sect"><span class="bar"></span><h2 style="font-size:16px">' + t('reportSubject') + '</h2></div>';
+  html += SUBJECTS.map(s => {
+    const done = GRADES.reduce((sum,g)=>sum+(getProgress(s.id,g).done||0),0);
+    const q = GRADES.reduce((sum,g)=>sum+(QUESTIONS[s.id][g]?QUESTIONS[s.id][g].length:0),0);
+    const pct = q ? Math.round(done/q*100) : 0;
+    return '<div class="mastery-row">' +
+      '<span class="mastery-ic" style="background:' + s.color + '22">' + s.ic + '</span>' +
+      '<span class="mastery-nm">' + (LANG==='zh'?s.zh:s.en) + '</span>' +
+      '<div class="mastery-bar"><div class="fill" style="width:' + pct + '%;background:' + s.color + '"></div></div>' +
+      '<span class="mastery-pct">' + pct + '%</span>' +
+    '</div>';
+  }).join('');
+
+  html += '<div class="sect"><span class="bar"></span><h2 style="font-size:16px">' + t('reportHistory') + '</h2>' +
+    (logs.length ? '<button class="btn ghost sm" onclick="clearLogs()">🗑 ' + t('reportClear') + '</button>' : '') + '</div>';
+  if(!logs.length){
+    html += '<div class="empty-card">' + t('reportNoData') + '</div>';
+  } else {
+    const recent = logs.slice(-10).reverse();
+    html += '<div class="log-list">' + recent.map(l => {
+      const s = SUBJECTS.find(x=>x.id===l.subject);
+      const color = s ? s.color : '#1f6feb';
+      const pct = l.total ? Math.round(l.correct/l.total*100) : 0;
+      const d = new Date(l.time);
+      const dt = (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      return '<div class="log-item" style="border-left-color:' + color + '">' +
+        '<div class="log-top"><span class="tag" style="background:' + color + '22;color:' + color + '">' + (l.title||(s?subjectName(s.id):'')) + '</span><span class="log-time">' + dt + '</span></div>' +
+        '<div class="log-score">' + l.correct + ' / ' + l.total + ' <span style="color:' + (pct>=60?'var(--ok)':'var(--bad)') + '">(' + pct + '%)</span></div>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+
+  box.innerHTML = html;
+}
+
+function clearLogs(){
+  localStorage.setItem('hkpl_logs', '[]');
+  renderReport();
+  installToast(t('reportClear'));
+}
+
+/* ============================================================
+   階段 4：AI 大量出題 + 快取
+   ============================================================ */
+
+function getAiBanks(){
+  try{ return JSON.parse(localStorage.getItem('hkpl_ai_banks') || '[]'); }catch(e){ return []; }
+}
+function setAiBanks(arr){
+  localStorage.setItem('hkpl_ai_banks', JSON.stringify(arr));
+}
+
+/* 初始化 AI 批量出題的表單選項 */
+function initAiBatchForm(){
+  const subjSel = $('aiBatchSubject');
+  const gradeSel = $('aiBatchGrade');
+  if(subjSel && !subjSel.options.length){
+    SUBJECTS.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = LANG==='zh' ? s.zh : s.en;
+      subjSel.appendChild(o);
+    });
+  }
+  if(gradeSel && !gradeSel.options.length){
+    GRADES.forEach(g => {
+      const o = document.createElement('option');
+      o.value = g; o.textContent = t(g);
+      gradeSel.appendChild(o);
+    });
+  }
+}
+
+function renderAiBankList(){
+  const box = $('aiBatchList');
+  if(!box) return;
+  const banks = getAiBanks();
+  if(!banks.length){
+    box.innerHTML = '<div class="empty-card">' + t('aiBatchNone') + '</div>';
+    return;
+  }
+  box.innerHTML = banks.map((b,i) => {
+    const s = SUBJECTS.find(x=>x.id===b.subject);
+    const color = s ? s.color : '#1f6feb';
+    const d = new Date(b.time);
+    const dt = (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    return '<div class="bank-item" style="border-left-color:' + color + '">' +
+      '<div class="bank-top">' +
+        '<span class="tag" style="background:' + color + '22;color:' + color + '">' + (s?subjectName(s.id):'') + ' · ' + t(b.grade) + '</span>' +
+        '<span class="tag">' + b.questions.length + ' ' + t('aiBatchTotal') + '</span>' +
+        '<span class="spacer"></span>' +
+        '<span class="log-time">' + dt + '</span>' +
+      '</div>' +
+      '<div class="bank-title">' + b.title + '</div>' +
+      '<div class="btn-row" style="justify-content:flex-start;margin-top:10px">' +
+        '<button class="btn pri sm" onclick="startAiBank(' + i + ')">▶ ' + t('aiBatchStart') + '</button>' +
+        '<button class="btn ghost sm" onclick="deleteAiBank(' + i + ')">🗑 ' + t('aiBatchDelete') + '</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function deleteAiBank(i){
+  const banks = getAiBanks();
+  banks.splice(i,1);
+  setAiBanks(banks);
+  renderAiBankList();
+  installToast(t('aiBatchDelete'));
+}
+
+function startAiBank(i){
+  const banks = getAiBanks();
+  const bank = banks[i];
+  if(!bank) return;
+  state.quiz = bank.questions;
+  state.idx = 0;
+  state.answers = new Array(state.quiz.length).fill(null);
+  state.correct = 0;
+  state.sortDraft = null;
+  matchState = null;
+  state.subject = bank.subject;
+  state.grade = bank.grade;
+  state._ai = true;
+  go('quiz');
+  $('quizTitle').textContent = (subjectName(bank.subject) + ' · ' + t(bank.grade) + ' · AI');
+  renderQuestion();
+}
+
+/* 批量生成：分批調用 LLM */
+async function aiBatchGenerate(){
+  const ai = getAI();
+  const isProxy = /\.workers\.dev/i.test(normalizeEndpoint(ai.endpoint));
+  if(!ai.key && !isProxy){ installToast(t('aiNoKey')); return; }
+
+  const count = parseInt($('aiBatchCount').value, 10) || 100;
+  const subject = $('aiBatchSubject').value;
+  const grade = $('aiBatchGrade').value;
+  const subjectZh = subjectName(subject);
+  const gradeZh = t(grade);
+
+  // 進度 UI
+  const status = $('aiBatchStatus');
+  const progWrap = $('batchProgress');
+  const progFill = $('batchProgressFill');
+  const progTxt = $('batchProgressTxt');
+  status.className = 'ai-status loading';
+  status.innerHTML = '<span class="spinner"></span>' + t('aiGenerating');
+  progWrap.classList.remove('hidden');
+  progFill.style.width = '0%';
+  progTxt.textContent = '0 / ' + count;
+
+  // 分批：每批 10 題，最多並行 2 批
+  const batchSize = 10;
+  const totalBatches = Math.ceil(count / batchSize);
+  const allQs = [];
+  const topic = subjectZh + ' ' + gradeZh + ' 綜合練習';
+
+  const system = `你是香港小學教育專家，精通香港教育局課程。請為「${gradeZh} ${subjectZh}」生成選擇題。
+要求：
+1. 題目難度必須符合香港${gradeZh}水平
+2. 用繁體中文出題（英文科可用英文）
+3. 每題 4 個選項（A-D），只有一個正確答案
+4. 每題附簡短中文解釋
+5. 嚴格輸出 JSON，格式如下：
+{"questions":[{"q":"題目","options":["A","B","C","D"],"answer":0,"explain":"解釋"}]}
+其中 answer 是正確選項的索引（0-3）。`;
+
+  try{
+    for(let b=0; b<totalBatches; b++){
+      const need = Math.min(batchSize, count - allQs.length);
+      const content = await callLLM([
+        { role:'system', content: system },
+        { role:'user', content: `請生成 ${need} 條關於「${topic}」的練習題（第 ${b+1} 批，避免與之前重複）。` }
+      ], { json:true, maxTokens: 3000 });
+
+      // 解析 JSON
+      const jsonStr = content.replace(/```json/gi,'').replace(/```/g,'').trim();
+      let parsed;
+      try{ parsed = JSON.parse(jsonStr); }
+      catch(e){ const m = jsonStr.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
+
+      if(!parsed || !parsed.questions || !parsed.questions.length){
+        throw new Error('AI 回傳格式異常');
+      }
+
+      const newQs = parsed.questions.map((q,i) => ({
+        type: 'choice',
+        q: q.q || q.question || ('題目' + (i+1)),
+        qe: q.qe || q.q_en || '',
+        o: q.options || q.o || [],
+        a: typeof q.answer === 'number' ? q.answer : parseInt(q.answer),
+        ex: q.explain || q.ex || '',
+        exe: q.explain_en || '',
+        ai: true,
+      })).filter(q => q.o.length >= 2 && q.a >= 0 && q.a < q.o.length);
+
+      allQs.push(...newQs);
+
+      // 更新進度
+      const pct = Math.round(allQs.length / count * 100);
+      progFill.style.width = Math.min(pct,100) + '%';
+      progTxt.textContent = allQs.length + ' / ' + count;
+    }
+
+    if(!allQs.length) throw new Error('AI 生成嘅題目無效');
+
+    // 儲存到快取
+    const banks = getAiBanks();
+    banks.unshift({
+      id: 'bank_' + Date.now(),
+      title: topic,
+      subject, grade,
+      questions: allQs,
+      time: Date.now(),
+    });
+    // 最多保留 20 個題庫
+    if(banks.length > 20) banks.length = 20;
+    setAiBanks(banks);
+
+    status.className = 'ai-status ok';
+    status.textContent = '✅ ' + t('aiBatchProgress') + ' ' + allQs.length + ' ' + t('aiBatchTotal');
+    progWrap.classList.add('hidden');
+    renderAiBankList();
+    installToast('✅ ' + t('aiBatchProgress') + ' ' + allQs.length + ' ' + t('aiBatchTotal'));
+  }catch(e){
+    status.className = 'ai-status err';
+    status.textContent = t('aiTestFail') + (e.message === 'NO_KEY' ? t('aiFillKey') : e.message);
+    progWrap.classList.add('hidden');
+  }
 }

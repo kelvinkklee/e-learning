@@ -231,6 +231,30 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 
     <div class="sect"><span class="bar"></span><h2 data-i18n="pickSubject">揀科目</h2></div>
     <div class="subjects" id="subjectList"></div>
+
+    <div class="sect"><span class="bar"></span><h2 data-i18n="tools">學習工具</h2><span class="emoji">🧰</span></div>
+    <div class="tools" id="toolList">
+      <div class="tool" onclick="go('wrongbook')">
+        <div class="tool-ic" style="background:#f43f5e22">📕</div>
+        <div class="tool-nm" data-i18n="wrongBook">錯題本</div>
+        <div class="tool-desc" data-i18n="wrongBookDesc">收集答錯題目</div>
+      </div>
+      <div class="tool" onclick="go('review')">
+        <div class="tool-ic" style="background:#f9731622">🔁</div>
+        <div class="tool-nm" data-i18n="reviewMode">溫習模式</div>
+        <div class="tool-desc" data-i18n="reviewDesc">只做錯題</div>
+      </div>
+      <div class="tool" onclick="go('daily')">
+        <div class="tool-ic" style="background:#18a05822">📅</div>
+        <div class="tool-nm" data-i18n="dailyChallenge">每日挑戰</div>
+        <div class="tool-desc" data-i18n="dailyDesc">每日 10 題</div>
+      </div>
+      <div class="tool" onclick="go('report')">
+        <div class="tool-ic" style="background:#1f6feb22">📊</div>
+        <div class="tool-nm" data-i18n="parentReport">家長報告</div>
+        <div class="tool-desc" data-i18n="reportSub">睇學習進度</div>
+      </div>
+    </div>
   </div>
 
   <!-- ===== UNITS ===== -->
@@ -266,6 +290,45 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
     <div class="result" id="resultBox"></div>
   </div>
 
+  <!-- ===== 錯題本 ===== -->
+  <div id="wrongbook" class="hidden">
+    <button class="backbtn" onclick="go('home')">← <span data-i18n="back">返主頁</span></button>
+    <div class="hero" style="padding-top:16px">
+      <h1 style="font-size:22px">📕 <span data-i18n="wrongBook">錯題本</span></h1>
+      <p data-i18n="wrongEmpty" style="font-size:13.5px">收集答錯嘅題目，方便重溫</p>
+    </div>
+    <div id="wrongList"></div>
+  </div>
+
+  <!-- ===== 溫習模式 ===== -->
+  <div id="review" class="hidden">
+    <button class="backbtn" onclick="go('home')">← <span data-i18n="back">返主頁</span></button>
+    <div class="hero" style="padding-top:16px">
+      <h1 style="font-size:22px">🔁 <span data-i18n="reviewMode">溫習模式</span></h1>
+      <p data-i18n="reviewDesc" style="font-size:13.5px">只做之前答錯嘅題目，鞏固弱項</p>
+    </div>
+    <div id="reviewBox"></div>
+  </div>
+
+  <!-- ===== 每日挑戰 ===== -->
+  <div id="daily" class="hidden">
+    <button class="backbtn" onclick="go('home')">← <span data-i18n="back">返主頁</span></button>
+    <div class="hero" style="padding-top:16px">
+      <h1 style="font-size:22px">📅 <span data-i18n="dailyChallenge">每日挑戰</span></h1>
+      <p data-i18n="dailyDesc" style="font-size:13.5px">每日 10 題，堅持打卡攞獎勵</p>
+    </div>
+    <div id="dailyBox"></div>
+  </div>
+
+  <!-- ===== 家長報告 ===== -->
+  <div id="report" class="hidden">
+    <button class="backbtn" onclick="go('home')">← <span data-i18n="back">返主頁</span></button>
+    <div class="hero" style="padding-top:16px">
+      <h1 style="font-size:22px">📊 <span data-i18n="parentReport">家長報告</span></h1>
+    </div>
+    <div id="reportBox"></div>
+  </div>
+
   <!-- ===== SETTINGS (AI) ===== -->
   <div id="settings" class="hidden">
     <button class="backbtn" onclick="go('home')">← <span data-i18n="back">返主頁</span></button>
@@ -298,6 +361,37 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
       <div id="aiStatus" class="ai-status"></div>
       <div class="ai-note" data-i18n="aiNote">⚠️ API Key 只會儲存喺你本機（localStorage），唔會上傳。請勿喺公共電腦使用個人 Key。</div>
     </div>
+
+    <div class="sect" style="margin-top:26px"><span class="bar"></span><h2 style="font-size:18px">🤖 <span data-i18n="aiBatchTitle">AI 大量出題</span></h2></div>
+    <div class="qcard">
+      <p data-i18n="aiBatchSub" style="font-size:13.5px;color:var(--muted);margin:0 0 14px">一次過生成大量題目並儲存，之後可以離線刷題</p>
+      <div class="batch-row">
+        <label class="field" style="flex:1;margin-bottom:0"><span data-i18n="aiBatchCount">題數</span>
+          <select id="aiBatchCount">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="500">500</option>
+          </select>
+        </label>
+        <label class="field" style="flex:1;margin-bottom:0"><span data-i18n="subject">科目</span>
+          <select id="aiBatchSubject"></select>
+        </label>
+        <label class="field" style="flex:1;margin-bottom:0"><span data-i18n="gradeWord">年級</span>
+          <select id="aiBatchGrade"></select>
+        </label>
+      </div>
+      <div class="btn-row" style="justify-content:flex-start;margin-top:14px">
+        <button class="btn pri sm" onclick="aiBatchGenerate()">⚡ <span data-i18n="aiBatchGen">批量生成</span></button>
+      </div>
+      <div id="aiBatchStatus" class="ai-status" style="margin-top:12px"></div>
+      <div class="batch-progress hidden" id="batchProgress">
+        <div class="progress .bar"><div class="fill" id="batchProgressFill" style="width:0%"></div></div>
+        <span class="txt" id="batchProgressTxt"></span>
+      </div>
+    </div>
+
+    <div class="sect" style="margin-top:26px"><span class="bar"></span><h2 style="font-size:18px">💾 <span data-i18n="aiBatchCached">已儲存題庫</span></h2></div>
+    <div id="aiBatchList"></div>
   </div>
 
   <div class="foot">
