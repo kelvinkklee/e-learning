@@ -410,6 +410,10 @@ async function callLLM(messages, { json=false, maxTokens=1500 } = {}){
     temperature: 0.6,
     max_tokens: maxTokens,
   };
+  // 若為推理模型（如 glm），關閉 thinking 以加快速度及節省 token
+  if(/glm/i.test(ai.model)){
+    body.thinking = { type: 'disabled' };
+  }
   if(json){
     body.response_format = { type: 'json_object' };
   }
