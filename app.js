@@ -12,8 +12,9 @@ let state = {
   grade: null,     // 年級 id
   quiz: [],        // 題目列表
   idx: 0,          // 目前題目
-  answers: [],     // 用戶答案（index）
+  answers: [],     // 用戶答案（依題型而異）
   correct: 0,      // 答對數
+  sortDraft: null, // 排序題草稿 {idx, order}
 };
 
 const $ = (id) => document.getElementById(id);
@@ -73,10 +74,10 @@ function renderGrades(){
   const list = $('gradeList');
   list.innerHTML = '';
   GRADES.forEach(g => {
-    const total = SUBJECTS.length * 4; // 每科4題
+    const total = SUBJECTS.reduce((sum, s) => sum + (QUESTIONS[s.id][g]?.length || 0), 0);
     let done = 0;
     SUBJECTS.forEach(s => { done += getProgress(s.id, g).done; });
-    const pct = Math.round(done / total * 100);
+    const pct = total ? Math.round(done / total * 100) : 0;
     const d = document.createElement('div');
     d.className = 'grade' + (state.grade===g ? ' active' : '');
     d.innerHTML = `
@@ -157,6 +158,8 @@ function startQuiz(){
   state.idx = 0;
   state.answers = new Array(state.quiz.length).fill(null);
   state.correct = 0;
+  state.sortDraft = null;
+  matchState = null;
   go('quiz');
   $('quizTitle').textContent = `${subjectName(state.subject)} · ${t(state.grade)}`;
   renderQuestion();
@@ -165,44 +168,42 @@ function startQuiz(){
 function renderQuestion(){
   const q = state.quiz[state.idx];
   const total = state.quiz.length;
+  const type = q.type || 'choice';
 
   // 進度
   $('progTxt').textContent = `${state.idx+1} / ${total}`;
   $('progFill').style.width = (state.idx / total * 100) + '%';
   $('progScore').textContent = `⭐ ${state.correct}`;
 
-  // 題目
   const area = $('qArea');
   const ans = state.answers[state.idx];
+
+  const typeMeta = QTYPE[type] || QTYPE.choice;
+  const typeLabel = LANG==='zh' ? typeMeta.zh : typeMeta.en;
+
+  let body = '';
+  switch(type){
+    case 'fill':   body = renderFill(q, ans); break;
+    case 'match':  body = renderMatch(q, ans); break;
+    case 'sort':   body = renderSort(q, ans); break;
+    case 'listen': body = renderListen(q, ans); break;
+    default:       body = renderChoice(q, ans); break;
+  }
+
   area.innerHTML = `
     <div class="qcard">
       <div class="qhead">
         <span class="qnum">${state.idx+1}</span>
-        <span class="qtype">${LANG==='zh' ? subjectName(state.subject) : subjectName(state.subject)}</span>
+        <span class="qtype">${typeMeta.ic} ${typeLabel}</span>
       </div>
-      <div class="qstem">${q.q}</div>
-      <div class="qstem-en">${q.qe}</div>
-      <div class="opts">
-        ${q.o.map((opt,i)=>{
-          let cls = 'opt';
-          if(ans !== null){
-            if(i === q.a) cls += ' correct';
-            else if(i === ans) cls += ' wrong';
-          }
-          return `<button class="${cls}" data-i="${i}" ${ans!==null?'disabled':''}>
-            <span class="k">${String.fromCharCode(65+i)}</span>
-            <span>${opt}</span>
-          </button>`;
-        }).join('')}
-      </div>
-      ${ans !== null ? `<div class="explain ${LANG==='en'?'en':''}"><b>${t('explain')}：</b>${LANG==='zh'?q.ex:q.exe}</div>` : ''}
+      <div class="qstem">${q.q || ''}</div>
+      ${q.qe ? `<div class="qstem-en">${q.qe}</div>` : ''}
+      ${body}
+      ${ans !== null && (q.ex || q.exe) ? `<div class="explain ${LANG==='en'?'en':''}"><b>${t('explain')}：</b>${LANG==='zh' ? (q.ex||q.exe) : (q.exe||q.ex)}</div>` : ''}
     </div>
   `;
 
-  area.querySelectorAll('.opt').forEach(btn => {
-    if(btn.disabled) return;
-    btn.onclick = () => choose(parseInt(btn.dataset.i));
-  });
+  bindQuestion(type, q, ans);
 
   // 按鈕
   const btns = $('quizBtns');
@@ -218,13 +219,147 @@ function renderQuestion(){
   }
 }
 
+/* ---------- 各題型渲染 ---------- */
+function renderChoice(q, ans){
+  return `<div class="opts">
+    ${q.o.map((opt,i)=>{
+      let cls = 'opt';
+      if(ans !== null){
+        if(i === q.a) cls += ' correct';
+        else if(i === ans) cls += ' wrong';
+      }
+      return `<button class="${cls}" data-i="${i}" ${ans!==null?'disabled':''}>
+        <span class="k">${String.fromCharCode(65+i)}</span>
+        <span>${opt}</span>
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderFill(q, ans){
+  const val = (typeof ans === 'string') ? ans : '';
+  const done = ans !== null;
+  const ok = done && ans === true;
+  const okArr = q.o || (q.a != null ? [q.a] : []);
+  return `
+    <div class="fill-wrap">
+      <input class="fill-input" id="fillInput" type="text" autocomplete="off"
+        placeholder="${t('fillHint')}" value="${val}" ${done?'disabled':''} ${ok?'data-ok="1"':''}>
+      ${!done ? `<button class="btn pri fill-check" id="fillCheck">${t('checkFill')}</button>` : ''}
+    </div>
+    ${done && !ok ? `<div class="fill-answer">${t('correct')} ${okArr.join(' / ')}</div>` : ''}
+  `;
+}
+
+function renderMatch(q, ans){
+  const pairs = q.pairs || [];
+  // 左欄順序固定，右欄打亂（用題目內建 seed 保證每次一致）
+  const right = pairs.map((p,i)=>p[1]);
+  const rightShuffled = shuffleCopy(right, q.seed || state.idx);
+  const leftSel = ans ? ans.left : null;    // 目前選中嘅左項 index
+  const matched = ans ? ans.matched : {};   // {leftIdx: rightIdx}
+  const done = ans !== null;
+
+  return `
+    <div class="match-hint">${t('matchHint')}</div>
+    <div class="match-grid">
+      <div class="match-col">
+        ${pairs.map((p,li)=>{
+          const done_i = matched[li] !== undefined;
+          let cls = 'match-item';
+          if(done_i){
+            if(matched[li] === li) cls += ' correct';
+            else cls += ' wrong';
+          } else if(leftSel === li) cls += ' active';
+          return `<button class="${cls}" data-li="${li}" ${done?'disabled':''}>${p[0]}</button>`;
+        }).join('')}
+      </div>
+      <div class="match-col">
+        ${rightShuffled.map((r,ri)=>{
+          const orig = pairs.findIndex(p=>p[1]===r);
+          const claimed = Object.entries(matched).some(([k,v])=>v===orig);
+          let cls = 'match-item';
+          if(claimed) cls += ' done';
+          return `<button class="${cls}" data-ri="${orig}" ${done?'disabled':''}>${r}</button>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderSort(q, ans){
+  const correct = q.o || [];
+  const user = ans || null;
+  const done = ans !== null;
+  // 未作答：排序區初始為空，候選池放全部詞（已揀嘅依次填入排序區）
+  let order;
+  if(done){
+    order = user; // 用戶提交嘅順序
+  } else if(ans === null && state.sortDraft && state.sortDraft.idx === state.idx){
+    order = state.sortDraft.order;
+  } else {
+    order = [];
+  }
+  const pool = correct.map((_,i)=>i).filter(i=>!order.includes(i));
+  const poolShuffled = shuffleCopy(pool, q.seed || (state.idx + 1000));
+  return `
+    <div class="match-hint">${t('sortHint')}</div>
+    <div class="sort-stage" id="sortStage">
+      ${order.length === 0 ? `<div class="sort-empty">${t('fillHint')}…</div>` : ''}
+      ${order.map((idx,pos)=>{
+        let cls = 'sort-chip';
+        if(done){
+          if(idx === pos) cls += ' correct';
+          else cls += ' wrong';
+        }
+        return `<button class="${cls}" data-i="${idx}" data-pos="${pos}" ${done?'disabled':''}>
+          <span class="sort-no">${pos+1}</span>${correct[idx]}</button>`;
+      }).join('')}
+    </div>
+    ${!done && pool.length ? `<div class="sort-pool" id="sortPool">
+      ${poolShuffled.map(idx=>`<button class="sort-chip pool" data-i="${idx}">${correct[idx]}</button>`).join('')}
+    </div>` : ''}
+    ${!done ? `<button class="btn pri sort-submit" id="sortSubmit" ${order.length<correct.length?'disabled':''}>${t('submitSort')}</button>` : ''}
+  `;
+}
+
+function renderListen(q, ans){
+  const canPlay = 'speechSynthesis' in window;
+  return `
+    <div class="listen-box">
+      <button class="btn listen-play" id="listenPlay" onclick="speakQ()" ${!canPlay?'disabled':''}>
+        🔊 ${t('playAgain')}
+      </button>
+    </div>
+    <div class="opts">
+      ${q.o.map((opt,i)=>{
+        let cls = 'opt';
+        if(ans !== null){
+          if(i === q.a) cls += ' correct';
+          else if(i === ans) cls += ' wrong';
+        }
+        return `<button class="${cls}" data-i="${i}" ${ans!==null?'disabled':''}>
+          <span class="k">${String.fromCharCode(65+i)}</span>
+          <span>${opt}</span>
+        </button>`;
+      }).join('')}
+    </div>
+  `;
+}
+
 function choose(i){
   const q = state.quiz[state.idx];
   state.answers[state.idx] = i;
-  if(i === q.a){
+  const correct = (i === q.a);
+  afterAnswer(correct);
+  renderQuestion();
+}
+
+/* 統一答題後處理：計分、金幣、連擊、音效 */
+function afterAnswer(correct){
+  if(correct){
     state.correct++;
     STREAK++;
-    // 答對：加金幣、連擊特效、音效、星星
     addCoins(10);
     playSound('correct');
     spawnConfetti();
@@ -233,7 +368,149 @@ function choose(i){
     STREAK = 0;
     playSound('wrong');
   }
+}
+
+/* ---------- 題型互動綁定 ---------- */
+function bindQuestion(type, q, ans){
+  const area = $('qArea');
+  if(type === 'choice' || type === 'listen'){
+    area.querySelectorAll('.opt').forEach(btn => {
+      if(btn.disabled) return;
+      btn.onclick = () => choose(parseInt(btn.dataset.i));
+    });
+  } else if(type === 'fill'){
+    const inp = $('fillInput');
+    const btn = $('fillCheck');
+    if(inp && btn){
+      btn.onclick = submitFill;
+      inp.addEventListener('keydown', e => { if(e.key === 'Enter') submitFill(); });
+    }
+  } else if(type === 'match'){
+    area.querySelectorAll('.match-item').forEach(btn => {
+      if(btn.disabled) return;
+      btn.onclick = () => matchTap(btn);
+    });
+  } else if(type === 'sort'){
+    area.querySelectorAll('.sort-chip').forEach(btn => {
+      if(btn.disabled) return;
+      btn.onclick = () => sortTap(btn);
+    });
+    const sub = $('sortSubmit');
+    if(sub) sub.onclick = submitSort;
+  }
+}
+
+/* ---------- 填充題 ---------- */
+function submitFill(){
+  const inp = $('fillInput');
+  if(!inp) return;
+  const q = state.quiz[state.idx];
+  const val = inp.value.trim().toLowerCase().replace(/\s+/g,' ');
+  if(!val) return;
+  const accepted = (q.o || (q.a != null ? [q.a] : [])).map(s =>
+    String(s).trim().toLowerCase().replace(/\s+/g,' ')
+  );
+  const correct = accepted.includes(val);
+  state.answers[state.idx] = correct; // true / false
+  afterAnswer(correct);
   renderQuestion();
+}
+
+/* ---------- 配對題 ---------- */
+let matchState = null; // { left: idx, matched: {leftIdx: rightIdx} }
+function matchTap(btn){
+  const q = state.quiz[state.idx];
+  const pairs = q.pairs || [];
+  if(!matchState) matchState = { left:null, matched:{} };
+
+  if(btn.dataset.li !== undefined){
+    // 點左欄：選中，準備配對
+    matchState.left = parseInt(btn.dataset.li);
+    renderQuestion();
+    return;
+  }
+  if(btn.dataset.ri !== undefined){
+    const ri = parseInt(btn.dataset.ri);
+    if(matchState.left === null) return; // 未選左項
+    const already = Object.entries(matchState.matched).find(([k,v])=>v===ri);
+    if(already) return; // 右項已被配
+    matchState.matched[matchState.left] = ri;
+    matchState.left = null;
+    // 若全部配完，判定
+    if(Object.keys(matchState.matched).length === pairs.length){
+      submitMatch();
+      return;
+    }
+    renderQuestion();
+  }
+}
+function submitMatch(){
+  const q = state.quiz[state.idx];
+  const pairs = q.pairs || [];
+  const correct = pairs.every((p,i)=> matchState.matched[i] === i);
+  state.answers[state.idx] = { left:null, matched: matchState.matched };
+  matchState = null;
+  afterAnswer(correct);
+  renderQuestion();
+}
+
+/* ---------- 排序題 ---------- */
+function sortTap(btn){
+  const q = state.quiz[state.idx];
+  const correct = q.o || [];
+  const idx = parseInt(btn.dataset.i);
+  if(!state.sortDraft || state.sortDraft.idx !== state.idx){
+    state.sortDraft = { idx: state.idx, order: [] };
+  }
+  const order = state.sortDraft.order;
+  if(btn.classList.contains('pool')){
+    // 從候選池加入排序尾（按正確次序點選）
+    if(!order.includes(idx)) order.push(idx);
+  } else {
+    // 已喺排序區：點擊移回候選池（撤銷）
+    const pos = order.indexOf(idx);
+    if(pos >= 0) order.splice(pos, 1);
+  }
+  renderQuestion();
+}
+function submitSort(){
+  const q = state.quiz[state.idx];
+  const correct = q.o || [];
+  const order = state.sortDraft ? state.sortDraft.order : [];
+  if(order.length < correct.length) return;
+  const isCorrect = order.every((idx,pos)=> idx === pos);
+  state.answers[state.idx] = order.slice();
+  state.sortDraft = null;
+  afterAnswer(isCorrect);
+  renderQuestion();
+}
+
+/* ---------- 聽音題 ---------- */
+function speakQ(){
+  if(!('speechSynthesis' in window)) return;
+  const q = state.quiz[state.idx];
+  const text = q.text || q.q || '';
+  if(!text) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = (q.lang) || (state.subject === 'eng' ? 'en-US' : 'zh-HK');
+  u.rate = 0.9;
+  window.speechSynthesis.speak(u);
+}
+
+/* 洗牌（可重現，用 seed） */
+function shuffleCopy(arr, seed){
+  const a = arr.slice();
+  let s = (typeof seed === 'number') ? seed : 42;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+  for(let i = a.length-1; i>0; i--){
+    const j = Math.floor(rnd() * (i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 function nextQ(){
