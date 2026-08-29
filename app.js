@@ -53,8 +53,9 @@ function setProgress(subject, grade, done, total, score, best){
 
 /* ---------- 導航 ---------- */
 function go(page){
-  ['home','units','quiz','result'].forEach(p => $(p).classList.add('hidden'));
+  ['home','units','quiz','result','settings'].forEach(p => $(p).classList.add('hidden'));
   $(page).classList.remove('hidden');
+  if(page === 'settings') loadAISettings();
   window.scrollTo({ top:0, behavior:'smooth' });
 }
 
@@ -138,6 +139,14 @@ function renderUnits(){
   `;
   d.onclick = () => startQuiz();
   list.appendChild(d);
+
+  // AI 出題按鈕
+  const aiBtn = document.createElement('button');
+  aiBtn.className = 'btn ghost';
+  aiBtn.style.cssText = 'width:100%;margin-top:8px';
+  aiBtn.innerHTML = '🤖 <span>' + t('aiGenerate') + '</span>';
+  aiBtn.onclick = (e) => { e.stopPropagation(); aiGenerate(); };
+  list.appendChild(aiBtn);
 }
 
 /* ---------- 測驗 ---------- */
@@ -240,6 +249,9 @@ function finishQuiz(){
     <p>${subjectName(state.subject)} · ${t(state.grade)}</p>
     <div class="btn-row">
       <button class="btn pri" onclick="startQuiz()">${t('retry')}</button>
+      <button class="btn ghost" onclick="aiAnalyze()">🧠 ${t('aiAnalyze')}</button>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
       <button class="btn ghost" onclick="go('units')">${t('backUnit')}</button>
       <button class="btn ghost" onclick="go('home')">${t('back')}</button>
     </div>
@@ -306,4 +318,277 @@ function handleDeepLink(){
     if(!state.grade) state.grade = 'p1';
     go('units'); renderUnits();
   }
+}
+
+/* ============================================================
+   AI 智能出題 / 批改 / 錯題分析（前端直接 call LLM，兼容 OpenAI 格式）
+   ============================================================ */
+
+/* 供應商預設配置 */
+const AI_PROVIDERS = {
+  huawei: {
+    endpoint: "https://api.modelarts-maas.com/v2/chat/completions",
+    model: "openpangu-2.0-pro",
+  },
+  openai: {
+    endpoint: "https://api.openai.com/v1/chat/completions",
+    model: "gpt-4o-mini",
+  },
+  custom: {
+    endpoint: "",
+    model: "",
+  }
+};
+
+function getAISettings(){
+  try{
+    return JSON.parse(localStorage.getItem('hkpl_ai') || '{}');
+  }catch(e){ return {}; }
+}
+function setAISettings(s){
+  localStorage.setItem('hkpl_ai', JSON.stringify(s));
+}
+
+function loadAISettings(){
+  const s = getAISettings();
+  $('aiProvider').value = s.provider || 'huawei';
+  onProviderChange();
+  $('aiEndpoint').value = s.endpoint || AI_PROVIDERS[s.provider||'huawei'].endpoint;
+  $('aiModel').value = s.model || AI_PROVIDERS[s.provider||'huawei'].model;
+  $('aiKey').value = s.key || '';
+  const st = $('aiStatus');
+  if(st){ st.className = 'ai-status'; st.textContent=''; }
+}
+
+function onProviderChange(){
+  const p = $('aiProvider').value;
+  const cfg = AI_PROVIDERS[p];
+  // 只在用戶未手動改過時填入預設（簡化：直接填預設，用戶可再改）
+  $('aiEndpoint').value = cfg.endpoint || '';
+  $('aiModel').value = cfg.model || '';
+}
+
+function saveAISettings(){
+  const s = {
+    provider: $('aiProvider').value,
+    endpoint: $('aiEndpoint').value.trim(),
+    model: $('aiModel').value.trim(),
+    key: $('aiKey').value.trim(),
+  };
+  setAISettings(s);
+  const st = $('aiStatus');
+  st.className = 'ai-status ok';
+  st.textContent = t('aiSaved');
+  installToast(t('aiSaved'));
+}
+
+function getAI(){
+  const s = getAISettings();
+  if(!s.endpoint) s.endpoint = AI_PROVIDERS.huawei.endpoint;
+  if(!s.model) s.model = AI_PROVIDERS.huawei.model;
+  return s;
+}
+
+/* 通用 LLM 調用（OpenAI 兼容 /chat/completions） */
+async function callLLM(messages, { json=false, maxTokens=1500 } = {}){
+  const ai = getAI();
+  if(!ai.key) throw new Error('NO_KEY');
+  const body = {
+    model: ai.model,
+    messages: messages,
+    temperature: 0.6,
+    max_tokens: maxTokens,
+  };
+  if(json){
+    body.response_format = { type: 'json_object' };
+  }
+  const resp = await fetch(ai.endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + ai.key,
+    },
+    body: JSON.stringify(body),
+  });
+  if(!resp.ok){
+    const txt = await resp.text();
+    throw new Error('HTTP ' + resp.status + ' ' + txt.slice(0,200));
+  }
+  const data = await resp.json();
+  const content = data.choices && data.choices[0] && data.choices[0].message
+    ? data.choices[0].message.content
+    : (data.choices && data.choices[0] && data.choices[0].text) || '';
+  return content;
+}
+
+async function testAIConnection(){
+  const ai = getAI();
+  const st = $('aiStatus');
+  if(!ai.key){
+    st.className = 'ai-status err';
+    st.textContent = t('aiFillKey');
+    return;
+  }
+  st.className = 'ai-status loading';
+  st.innerHTML = '<span class="spinner"></span>' + t('aiGenerating');
+  try{
+    const content = await callLLM([
+      { role:'system', content:'你是香港小學教育助手，用繁體中文簡短回應。' },
+      { role:'user', content:'請回覆「連接成功」四個字。' }
+    ], { maxTokens: 50 });
+    st.className = 'ai-status ok';
+    st.textContent = t('aiTestOk') + ' · ' + content.slice(0, 60);
+  }catch(e){
+    st.className = 'ai-status err';
+    st.textContent = t('aiTestFail') + (e.message === 'NO_KEY' ? t('aiFillKey') : e.message);
+  }
+}
+
+/* AI 出題：生成選擇題 */
+async function aiGenerate(){
+  const ai = getAI();
+  if(!ai.key){ installToast(t('aiNoKey')); go('settings'); return; }
+
+  // 收集題材
+  const topic = prompt(t('aiGenTopic'), '');
+  if(topic === null) return; // 取消
+
+  installToast(t('aiGenerating'));
+  const subjectZh = subjectName(state.subject);
+  const gradeZh = t(state.grade || 'p1');
+  const system = `你是香港小學教育專家，精通香港教育局課程。請為「${gradeZh} ${subjectZh}」生成 3 條關於「${topic}」的選擇題。
+要求：
+1. 題目難度必須符合香港${gradeZh}水平
+2. 用繁體中文出題（英文科可用英文）
+3. 每題 4 個選項（A-D），只有一個正確答案
+4. 每題附簡短中文解釋
+5. 嚴格輸出 JSON，格式如下：
+{"questions":[{"q":"題目","options":["A選項","B選項","C選項","D選項"],"answer":0,"explain":"解釋"}]}
+其中 answer 是正確選項的索引（0-3）。`;
+
+  try{
+    const content = await callLLM([
+      { role:'system', content: system },
+      { role:'user', content: `請生成關於「${topic}」的${gradeZh}${subjectZh}練習題` }
+    ], { json:true, maxTokens: 2000 });
+
+    // 解析 JSON
+    const jsonStr = content.replace(/```json/gi,'').replace(/```/g,'').trim();
+    let parsed;
+    try{
+      parsed = JSON.parse(jsonStr);
+    }catch(e){
+      const m = jsonStr.match(/\{[\s\S]*\}/);
+      parsed = m ? JSON.parse(m[0]) : null;
+    }
+    if(!parsed || !parsed.questions || !parsed.questions.length){
+      throw new Error('AI 回傳格式異常');
+    }
+
+    // 轉成 app 題目格式，加入 quiz
+    const newQs = parsed.questions.map((q,i) => ({
+      q: q.q || q.question || ('題目'+(i+1)),
+      qe: q.qe || q.q_en || '',
+      o: q.options || q.o || [],
+      a: typeof q.answer === 'number' ? q.answer : parseInt(q.answer),
+      ex: q.explain || q.ex || '',
+      exe: q.explain_en || '',
+      ai: true,
+    })).filter(q => q.o.length >= 2 && q.a >= 0 && q.a < q.o.length);
+
+    if(!newQs.length) throw new Error('AI 生成嘅題目無效');
+
+    state.quiz = newQs;
+    state.idx = 0;
+    state.answers = new Array(newQs.length).fill(null);
+    state.correct = 0;
+    go('quiz');
+    $('quizTitle').textContent = `${subjectName(state.subject)} · ${gradeZh} · AI`;
+    renderQuestion();
+    installToast('✅ AI 已生成 ' + newQs.length + ' 題');
+  }catch(e){
+    installToast(t('aiTestFail') + (e.message === 'NO_KEY' ? t('aiFillKey') : e.message));
+  }
+}
+
+/* AI 批改 + 錯題分析 */
+async function aiAnalyze(){
+  const ai = getAI();
+  if(!ai.key){ installToast(t('aiNoKey')); go('settings'); return; }
+
+  // 收集錯題
+  const wrong = [];
+  state.quiz.forEach((q,i) => {
+    if(state.answers[i] !== null && state.answers[i] !== q.a){
+      wrong.push({
+        q: q.q,
+        options: q.o,
+        userAnswer: q.o[state.answers[i]],
+        correctAnswer: q.o[q.a],
+      });
+    }
+  });
+
+  const subjectZh = subjectName(state.subject);
+  const gradeZh = t(state.grade || 'p1');
+
+  installToast(t('aiGenerating'));
+
+  const system = `你是香港小學補習導師，用繁體中文（可夾雜粵語口吻，但保持專業）。請針對學生以下錯題，做一份簡潔嘅錯題分析報告：
+1. 逐題指出錯誤原因
+2. 講解正確做法
+3. 總結需要重點溫習嘅知識點
+4. 給出 2-3 條溫習建議
+用 Markdown 格式輸出。`;
+
+  const wrongText = wrong.length
+    ? wrong.map((w,i)=>`第${i+1}題：${w.q}\n學生答案：${w.userAnswer}\n正確答案：${w.correctAnswer}`).join('\n\n')
+    : '（今次全部答啱，冇錯題）';
+
+  try{
+    const content = await callLLM([
+      { role:'system', content: system },
+      { role:'user', content: `科目：${subjectZh} ${gradeZh}\n總題數：${state.quiz.length}，答對：${state.correct} 題\n\n錯題如下：\n${wrongText}` }
+    ], { maxTokens: 1500 });
+
+    showAIReport(content);
+  }catch(e){
+    installToast(t('aiTestFail') + (e.message === 'NO_KEY' ? t('aiFillKey') : e.message));
+  }
+}
+
+function showAIReport(markdown){
+  // 建立一個全屏 modal 顯示報告
+  let modal = $('aiReportModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'aiReportModal';
+    modal.className = 'ai-modal';
+    modal.innerHTML = `
+      <div class="ai-modal-box">
+        <div class="ai-modal-head">
+          <h3>${t('aiResult')}</h3>
+          <button onclick="closeAIReport()">✕</button>
+        </div>
+        <div class="ai-modal-body" id="aiReportBody"></div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  // 簡單 markdown 轉 html
+  const html = markdown
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^### (.*)$/gm,'<h4>$1</h4>')
+    .replace(/^## (.*)$/gm,'<h3>$1</h3>')
+    .replace(/^# (.*)$/gm,'<h2>$1</h2>')
+    .replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')
+    .replace(/^- (.*)$/gm,'<li>$1</li>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>');
+  $('aiReportBody').innerHTML = '<p>' + html + '</p>';
+  modal.style.display = 'flex';
+}
+
+function closeAIReport(){
+  const modal = $('aiReportModal');
+  if(modal) modal.style.display = 'none';
 }

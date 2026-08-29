@@ -162,6 +162,36 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 }
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
 
+/* ---------- settings / AI ---------- */
+.iconbtn{display:flex; align-items:center; gap:6px; font-weight:700; font-size:16px; padding:7px 11px; border-radius:999px; border:1.5px solid var(--line); background:#fff; transition:.15s}
+.iconbtn:hover{border-color:var(--brand); background:#eef4ff}
+.field{display:block; margin-bottom:14px}
+.field span{display:block; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:6px}
+.field input,.field select{
+  width:100%; padding:12px 14px; border-radius:12px; border:2px solid var(--line);
+  font-size:14px; font-family:inherit; background:#fff; color:var(--ink); transition:.15s;
+}
+.field input:focus,.field select:focus{outline:none; border-color:var(--brand)}
+.ai-status{margin-top:12px; padding:12px 14px; border-radius:12px; font-size:13.5px; display:none}
+.ai-status.ok{display:block; background:#ecf9f1; border:1px solid #bfe8cf; color:#126437}
+.ai-status.err{display:block; background:#fdecec; border:1px solid #f5c2c4; color:#8c1f22}
+.ai-status.loading{display:block; background:#eef4ff; border:1px solid #c6ddff; color:#1f5a8a}
+.ai-note{margin-top:12px; font-size:12px; color:var(--muted); line-height:1.6; background:#fff8ee; border:1px solid #ffe2b8; border-radius:10px; padding:10px 12px}
+.spinner{display:inline-block; width:14px; height:14px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- AI modal ---------- */
+.ai-modal{position:fixed; inset:0; background:rgba(15,25,45,.55); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px)}
+.ai-modal-box{background:#fff; border-radius:18px; max-width:560px; width:100%; max-height:82vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden}
+.ai-modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line)}
+.ai-modal-head h3{margin:0; font-size:17px}
+.ai-modal-head button{font-size:20px; color:var(--muted); padding:4px 10px; border-radius:8px}
+.ai-modal-head button:hover{background:#f0f4fb}
+.ai-modal-body{padding:18px 20px; overflow-y:auto; font-size:14.5px; line-height:1.7; color:var(--ink)}
+.ai-modal-body h2,.ai-modal-body h3,.ai-modal-body h4{margin:14px 0 6px}
+.ai-modal-body h4{font-size:14px; color:var(--brand)}
+.ai-modal-body li{margin:4px 0 4px 18px}
+
 /* ---------- responsive ---------- */
 @media(max-width:640px){
   .grades{grid-template-columns:repeat(3,1fr)}
@@ -174,6 +204,7 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 <div class="topbar">
   <div class="logo"><span class="dot">📚</span><span data-i18n="appName">香港小學樂學</span></div>
   <div class="spacer"></div>
+  <button class="iconbtn" id="aiSetBtn" onclick="go('settings')" title="AI 設定">🤖</button>
   <button class="langbtn" onclick="toggleLang()"><span id="langIco">中</span><span data-i18n="lang">中文</span></button>
 </div>
 
@@ -229,6 +260,39 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
   <!-- ===== RESULT ===== -->
   <div id="result" class="hidden">
     <div class="result" id="resultBox"></div>
+  </div>
+
+  <!-- ===== SETTINGS (AI) ===== -->
+  <div id="settings" class="hidden">
+    <button class="backbtn" onclick="go('home')">← <span data-i18n="back">返主頁</span></button>
+    <div class="hero" style="padding-top:16px">
+      <h1 style="font-size:22px">🤖 <span data-i18n="aiTitle">AI 智能出題設定</span></h1>
+      <p id="aiSub" style="font-size:13.5px" data-i18n="aiSub">填寫你嘅大模型（LLM）資料，即可用 AI 自動出題、批改同錯題分析。資料只儲存喺你部機。</p>
+    </div>
+    <div class="qcard">
+      <label class="field"><span data-i18n="aiProvider">供應商</span>
+        <select id="aiProvider" onchange="onProviderChange()">
+          <option value="huawei">華為雲 MaaS (Huawei Cloud)</option>
+          <option value="openai">OpenAI 兼容 (OpenAI-compatible)</option>
+          <option value="custom">自訂 (Custom)</option>
+        </select>
+      </label>
+      <label class="field"><span data-i18n="aiEndpoint">API Endpoint</span>
+        <input id="aiEndpoint" type="text" placeholder="https://api.modelarts-maas.com/v2/chat/completions" autocomplete="off">
+      </label>
+      <label class="field"><span data-i18n="aiModel">模型名稱 (Model)</span>
+        <input id="aiModel" type="text" placeholder="openpangu-2.0-pro" autocomplete="off">
+      </label>
+      <label class="field"><span data-i18n="aiKey">API Key</span>
+        <input id="aiKey" type="password" placeholder="MAAS_API_KEY" autocomplete="off">
+      </label>
+      <div class="btn-row" style="justify-content:flex-start">
+        <button class="btn pri sm" onclick="saveAISettings()">💾 <span data-i18n="aiSave">儲存設定</span></button>
+        <button class="btn ghost sm" onclick="testAIConnection()">🔌 <span data-i18n="aiTest">測試連接</span></button>
+      </div>
+      <div id="aiStatus" class="ai-status"></div>
+      <div class="ai-note" data-i18n="aiNote">⚠️ API Key 只會儲存喺你本機（localStorage），唔會上傳。請勿喺公共電腦使用個人 Key。</div>
+    </div>
   </div>
 
   <div class="foot">
