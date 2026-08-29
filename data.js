@@ -1,0 +1,317 @@
+/* ============================================================
+   香港小學樂學 — 課程內容資料層
+   依據：
+   - 教育局《小學教育課程指引》(2024)
+   - 《中國語文課程指引（小一至小六）》(2023) 及《小學中國語文建議學習重點》(2023修訂)
+   - 數學教育學習領域課程指引補充文件：小學數學科學習內容 (2017)
+   - English Language Curriculum Guide (Primary 1–6) 2025
+   - 2025/26 學年開設「小學人文科」及「小學科學科」
+   ============================================================ */
+
+const I18N = {
+  zh: {
+    appName:"香港小學樂學", lang:"中文",
+    heroTitle:"開心學，", heroGrad:"打好基礎",
+    heroSub:"內容對照香港教育局《小學教育課程指引》(2024) 及各科課程指引設計，覆蓋小一至小六。",
+    b1:"📘 中文 · 英文 · 數學 · 常識", b2:"🎯 6 個年級",
+    b3:"🀄 繁中 / English 雙語", b4:"📈 自動記錄進度",
+    pickGrade:"揀年級", pickSubject:"揀科目",
+    back:"返主頁", units:"學習單元", backUnit:"返單元",
+    foot1:"內容依據：教育局《小學教育課程指引》(2024)、《中國語文課程指引（小一至小六）》(2023)、小學數學科學習內容(2017)、English Language Curriculum Guide (P1–6) 2025。",
+    foot2:"本 App 為學習輔助工具，正式課程以教育局官方文件為準。",
+    gradeWord:"年級", p1:"小一", p2:"小二", p3:"小三", p4:"小四", p5:"小五", p6:"小六",
+    done:"完成度", qcount:"題數", subject:"科目",
+    start:"開始練習", retry:"再試一次", next:"下一題", seeResult:"睇結果",
+    check:"檢查答案", correct:"答啱喇！", wrong:"再諗下啦～",
+    resultTitle:"練習完成！", score:"分數", starsGreat:"好犀利！", starsGood:"做得好好！", starsOk:"繼續努力！",
+    explain:"解釋", listening:"聆聽", speaking:"說話", reading:"閱讀", writing:"寫作",
+    installNow:"安裝 App", installed:"✅ 已成功安裝！",
+    installHint:"請用瀏覽器選單「加到主畫面」安裝",
+    foundation:"基礎", cultural:"文化", value:"價值觀", science:"科學", human:"人文",
+    vocabulary:"詞彙", grammar:"文法", number:"數", shape:"圖形與空間", measure:"度量", data:"數據處理", algebra:"代數",
+  },
+  en: {
+    appName:"HK Primary Learning", lang:"English",
+    heroTitle:"Learn with joy, ", heroGrad:"build strong basics",
+    heroSub:"Aligned to the EDB Primary Education Curriculum Guide (2024) and subject curriculum guides, covering P1–P6.",
+    b1:"📘 Chinese · English · Maths · General Studies", b2:"🎯 6 levels",
+    b3:"🀄 Bilingual (中文 / English)", b4:"📈 Auto-saved progress",
+    pickGrade:"Choose a level", pickSubject:"Choose a subject",
+    back:"Back to home", units:"Learning units", backUnit:"Back to units",
+    foot1:"Aligned to: EDB Primary Education Curriculum Guide (2024), Chinese Language Curriculum Guide (P1–6) 2023, Primary Maths Learning Content (2017), English Language Curriculum Guide (P1–6) 2025.",
+    foot2:"This app is a learning aid; the official EDB documents remain authoritative.",
+    gradeWord:"Level", p1:"P1", p2:"P2", p3:"P3", p4:"P4", p5:"P5", p6:"P6",
+    done:"Progress", qcount:"Questions", subject:"Subject",
+    start:"Start practice", retry:"Try again", next:"Next", seeResult:"See result",
+    check:"Check answer", correct:"Correct!", wrong:"Try again~",
+    resultTitle:"Practice complete!", score:"Score", starsGreat:"Excellent!", starsGood:"Well done!", starsOk:"Keep it up!",
+    explain:"Explanation", listening:"Listening", speaking:"Speaking", reading:"Reading", writing:"Writing",
+    installNow:"Install App", installed:"✅ Installed successfully!",
+    installHint:"Use your browser menu → 'Add to Home Screen'",
+    foundation:"Foundation", cultural:"Culture", value:"Values", science:"Science", human:"Humanities",
+    vocabulary:"Vocabulary", grammar:"Grammar", number:"Number", shape:"Shape & Space", measure:"Measures", data:"Data Handling", algebra:"Algebra",
+  }
+};
+
+/* 四科定義 */
+const SUBJECTS = [
+  { id:"chi", ic:"漢", color:"#e5484d", zh:"中文", en:"Chinese", code:"c1",
+    descZh:"聆聽 · 說話 · 閱讀 · 寫作，配合中國語文課程指引", descEn:"Listening · Speaking · Reading · Writing" },
+  { id:"eng", ic:"EN", color:"#1f6feb", zh:"英文", en:"English", code:"c2",
+    descZh:"四技綜合，配合 English Language Curriculum Guide", descEn:"Four skills, aligned to the EL Curriculum Guide" },
+  { id:"math", ic:"Σ", color:"#18a058", zh:"數學", en:"Maths", code:"c3",
+    descZh:"數 · 圖形與空間 · 度量 · 數據處理 · 代數", descEn:"Number · Shape & Space · Measures · Data · Algebra" },
+  { id:"gs", ic:"通", color:"#7c3aed", zh:"常識", en:"General Studies", code:"c4",
+    descZh:"人文科 + 科學科（2025/26 學年起）", descEn:"Humanities + Science (from 2025/26)" },
+];
+
+/* 年級標籤 */
+const GRADES = ["p1","p2","p3","p4","p5","p6"];
+
+/* ============================================================
+   課程單元地圖（每科每級一個單元，含學習重點，雙語）
+   ============================================================ */
+const CURRICULUM = {
+  /* ---------------- 中文 ---------------- */
+  chi: {
+    p1: { zh:"基礎漢字與識字", en:"Basic Chinese Characters & Word Recognition",
+      lo:{ zh:"認識常用字字形、筆順，學習粵音/普通話讀音；能聆聽及複述簡單故事。", en:"Recognise common characters, stroke order and pronunciation; listen to and retell simple stories." },
+      tags:["識字","聆聽","閱讀"] },
+    p2: { zh:"句子與閱讀入門", en:"Sentences & Early Reading",
+      lo:{ zh:"認識句子的基本結構，積累詞彙；能理解短文大意，練習看圖寫話。", en:"Understand basic sentence structure and build vocabulary; grasp the gist of short texts; write about pictures." },
+      tags:["語法","閱讀","寫作"] },
+    p3: { zh:"段落理解與寫作", en:"Paragraph Comprehension & Writing",
+      lo:{ zh:"能理解段落主旨與細節，運用標點；學習記敍文的時地人事要素。", en:"Identify main ideas and details; use punctuation; learn narrative elements (time, place, people, events)." },
+      tags:["閱讀","寫作"] },
+    p4: { zh:"記敍與說明文", en:"Narration & Expository Texts",
+      lo:{ zh:"閱讀不同文體，掌握段意歸納；寫作有條理的記敍文及簡單說明文。", en:"Read varied text types; summarise paragraphs; write organised narratives and simple expositions." },
+      tags:["閱讀","寫作","文化"] },
+    p5: { zh:"修辭與描寫", en:"Rhetoric & Description",
+      lo:{ zh:"認識比喻、擬人等修辭，運用形容與描寫豐富文章；理解文章深層意思。", en:"Use simile, personification and description; infer deeper meaning from texts." },
+      tags:["寫作","修辭","文化"] },
+    p6: { zh:"綜合語文運用", en:"Integrated Language Use",
+      lo:{ zh:"綜合閱讀、寫作、聆聽、說話能力；認識說明、議論要素，為升中作準備。", en:"Integrate four language skills; understand exposition & argumentation; prepare for secondary transition." },
+      tags:["綜合","升中準備"] },
+  },
+  /* ---------------- 英文 ---------------- */
+  eng: {
+    p1: { zh:"Phonics 與基礎詞彙", en:"Phonics & Basic Vocabulary",
+      lo:{ zh:"辨識字母音與基礎 Phonics；認讀高頻詞；簡單問答與朗讀。", en:"Recognise letter sounds and basic phonics; read high-frequency words; simple Q&A and reading aloud." },
+      tags:["Phonics","Vocabulary","Speaking"] },
+    p2: { zh:"簡單現在式與句型", en:"Simple Present & Sentence Patterns",
+      lo:{ zh:"運用 be 動詞與現在式；掌握基本句型；寫短句及看圖描述。", en:"Use 'to be' and present simple; master basic patterns; write short sentences and describe pictures." },
+      tags:["Grammar","Writing"] },
+    p3: { zh:"閱讀理解與現在進行式", en:"Comprehension & Present Continuous",
+      lo:{ zh:"理解短文大意與細節；運用現在進行式；寫短段落。", en:"Understand main ideas & details; use present continuous; write short paragraphs." },
+      tags:["Reading","Grammar"] },
+    p4: { zh:"過去式與敍事寫作", en:"Past Tense & Narrative Writing",
+      lo:{ zh:"運用過去式敍述事件；閱讀故事並歸納；寫日記與故事。", en:"Narrate events in the past tense; read stories and summarise; write diaries and stories." },
+      tags:["Grammar","Writing"] },
+    p5: { zh:"將來式與比較級", en:"Future Tense & Comparatives",
+      lo:{ zh:"運用將來式、比較級/最高級；寫段落及簡單議論文。", en:"Use future tense and comparatives/superlatives; write paragraphs and simple arguments." },
+      tags:["Grammar","Writing"] },
+    p6: { zh:"綜合語言運用", en:"Integrated Language Use",
+      lo:{ zh:"綜合四技；掌握各時態與複合句；準備升中與 TSA 能力。", en:"Integrate four skills; master tenses and complex sentences; prepare for secondary and TSA." },
+      tags:["Integrated","TSA"] },
+  },
+  /* ---------------- 數學 ---------------- */
+  math: {
+    p1: { zh:"100 以內的數與加減", en:"Numbers to 100 & Addition/Subtraction",
+      lo:{ zh:"認識 100 以內的數、比較大小；兩位數加減；認識平面圖形。", en:"Understand numbers to 100 and compare; 2-digit addition/subtraction; recognise plane shapes." },
+      tags:["數","圖形與空間"] },
+    p2: { zh:"乘法的認識與時間", en:"Introduction to Multiplication & Time",
+      lo:{ zh:"認識乘法口訣（2、5、10）；讀鐘面認識時間；認識簡單度量單位。", en:"Learn multiplication tables (2,5,10); tell the time; simple units of measure." },
+      tags:["數","度量"] },
+    p3: { zh:"乘除與分數", en:"Multiplication/Division & Fractions",
+      lo:{ zh:"掌握乘除法；認識分數及簡單同分母加減；認識周長與面積概念。", en:"Master multiplication/division; basic fractions; perimeter and area concepts." },
+      tags:["數","度量"] },
+    p4: { zh:"多位數與四則運算", en:"Large Numbers & Four Operations",
+      lo:{ zh:"多位數四則運算；認識小數與分數互化；簡單幾何圖形性質。", en:"Four operations with large numbers; decimals & fractions; properties of shapes." },
+      tags:["數","圖形與空間"] },
+    p5: { zh:"分數運算與面積體積", en:"Fraction Operations & Area/Volume",
+      lo:{ zh:"分數四則；面積與體積公式；認識平均數與統計圖表。", en:"Fraction operations; area & volume; mean and statistical charts." },
+      tags:["數","度量","數據處理"] },
+    p6: { zh:"百分數與代數入門", en:"Percentages & Introduction to Algebra",
+      lo:{ zh:"百分數應用；簡單方程；速率與比例；綜合應用題。", en:"Percentages; simple equations; rate & ratio; integrated word problems." },
+      tags:["數","代數","綜合"] },
+  },
+  /* ---------------- 常識（人文 + 科學） ---------------- */
+  gs: {
+    p1: { zh:"我自己與家庭", en:"Myself & My Family",
+      lo:{ zh:"認識自己身體與感官；了解家庭成員與角色；建立良好生活習慣。", en:"Know my body and senses; understand family roles; build good habits." },
+      tags:["人文","健康"] },
+    p2: { zh:"我的社區與環境", en:"My Community & Environment",
+      lo:{ zh:"認識社區設施與職業；初步認識環境保護與珍惜資源。", en:"Know community facilities and jobs; basic environmental awareness." },
+      tags:["人文","環境"] },
+    p3: { zh:"香港與祖國", en:"Hong Kong & Our Motherland",
+      lo:{ zh:"認識香港的地理與社會；了解香港與國家的關係；愛國主義教育。", en:"Know Hong Kong's geography and society; understand its ties with the nation." },
+      tags:["人文","價值觀"] },
+    p4: { zh:"科學探索與物質", en:"Scientific Inquiry & Matter",
+      lo:{ zh:"認識物質的特性與變化；學習觀察、提問與簡單實驗方法。", en:"Properties and changes of matter; observation, questioning and simple experiments." },
+      tags:["科學","探究"] },
+    p5: { zh:"生物與能量", en:"Living Things & Energy",
+      lo:{ zh:"認識生物多樣性與生命週期；了解能量形式與轉換。", en:"Biodiversity and life cycles; forms and conversion of energy." },
+      tags:["科學","生物"] },
+    p6: { zh:"地球與宇宙科技", en:"Earth, Space & Technology",
+      lo:{ zh:"認識地球系統與宇宙；了解科技發展對生活的影響；國家科技成就。", en:"Earth systems and the universe; how technology shapes life; national achievements." },
+      tags:["科學","人文","價值觀"] },
+  },
+};
+
+/* ============================================================
+   題目庫：每科每級 4 題（選擇題），雙語，含答案與解釋
+   ============================================================ */
+const QUESTIONS = {
+  chi: {
+    p1: [
+      { q:"「日」字有幾多畫？", qe:"How many strokes does the character 「日」 have?", o:["3 畫","4 畫","5 畫","2 畫"], a:1, ex:"「日」共 4 畫：豎、橫折、橫、橫。", exe:"「日」 has 4 strokes." },
+      { q:"邊個係「爸爸的哥哥」？", qe:"Who is 'father's elder brother'?", o:["叔叔","伯父","舅父","祖父"], a:1, ex:"爸爸的哥哥叫「伯父」；弟弟叫「叔叔」。", exe:"Father's elder brother is 伯父." },
+      { q:"「一隻貓」嘅「隻」係咩詞？", qe:"What kind of word is 「隻」 in 「一隻貓」?", o:["動詞","量詞","名詞","形容詞"], a:1, ex:"「隻」係量詞，用嚟數動物或物件。", exe:"隻 is a measure word (classifier)." },
+      { q:"「開心」嘅反義詞係？", qe:"What is the antonym of 「開心」?", o:["快樂","傷心","興奮","愉快"], a:1, ex:"「開心」相反係「傷心」。", exe:"The opposite of 開心 is 傷心." },
+    ],
+    p2: [
+      { q:"「小明＿＿公園玩。」空格應填咩？", qe:"Fill in the blank: 小明＿＿公園玩。", o:["在","再","坐","左"], a:0, ex:"「在」表示地方：小明在公園玩。", exe:"在 indicates location." },
+      { q:"邊個句子啱？", qe:"Which sentence is correct?", o:["我喜歡食蘋果。","我食蘋果喜歡。","喜歡我食蘋果。","蘋果我喜歡食了。"], a:0, ex:"主語+動詞+賓語：我喜歡食蘋果。", exe:"Subject-verb-object order: 我喜歡食蘋果." },
+      { q:"「綠油油」形容咩？", qe:"What does 「綠油油」 describe?", o:["聲音","顏色","味道","大小"], a:1, ex:"「綠油油」形容顏色，形容很綠的草或葉。", exe:"綠油油 describes a vivid green colour." },
+      { q:"句子結尾應用咩標點？「今日天氣真好」", qe:"What punctuation ends 「今日天氣真好」?", o:["句號","問號","感嘆號","逗號"], a:2, ex:"表達讚嘆、強烈語氣用感嘆號。", exe:"Use an exclamation mark for strong feeling." },
+    ],
+    p3: [
+      { q:"記敍文嘅「四要素」唔包括以下邊樣？", qe:"Which is NOT one of the four narrative elements?", o:["時間","地點","人物","天氣"], a:3, ex:"記敍文四要素：時間、地點、人物、事情。", exe:"The four elements: time, place, people, events." },
+      { q:"「他跑得很快，像一陣風。」用咗咩修辭？", qe:"What figure of speech is used in 「他跑得很快，像一陣風。」?", o:["比喻","擬人","排比","反問"], a:0, ex:"用「像」把跑得快比作風，係明喻。", exe:"Simile — comparing running to wind using 像." },
+      { q:"「老師」嘅「師」字部首係？", qe:"What is the radical of 「師」?", o:["巾部","巿部","十部","刀部"], a:1, ex:"「師」字部首係「巿」。", exe:"The radical of 師 is 巿." },
+      { q:"邊個詞語唔係疊詞？", qe:"Which word is NOT a reduplicated word?", o:["紅紅","高高","書包","慢慢"], a:2, ex:"疊詞係重複相同字，如紅紅、高高、慢慢。", exe:"疊詞 repeats the same character." },
+    ],
+    p4: [
+      { q:"說明文主要目的係咩？", qe:"What is the main purpose of an expository text?", o:["講故事","說明事物或道理","抒發感情","說服別人"], a:1, ex:"說明文用嚟介紹、解釋事物或道理。", exe:"Exposition explains or describes things." },
+      { q:"「擬人」修辭係指？", qe:"What is personification?", o:["把人比作物","把物當作人來寫","誇大事實","重複句式"], a:1, ex:"擬人係把無生命嘅事物當作人嚟寫，賦予人的感情。", exe:"Personification gives human qualities to things." },
+      { q:"「專心致志」嘅意思係？", qe:"What does 「專心致志」 mean?", o:["心不在焉","一心一意、集中精神","三心兩意","匆匆忙忙"], a:1, ex:"專心致志=一心一意、非常專注。", exe:"It means to concentrate wholeheartedly." },
+      { q:"邊個係正確嘅「被字句」？", qe:"Which is a correct passive sentence?", o:["風把窗吹開了。","窗被風吹開了。","風吹開了窗。","窗開了風吹。"], a:1, ex:"被字句：受事+被+施事+動詞：窗被風吹開了。", exe:"Passive: object + 被 + subject + verb." },
+    ],
+    p5: [
+      { q:"「月亮像玉盤掛在天上」用咗咩修辭？", qe:"What figure of speech is 「月亮像玉盤掛在天上」?", o:["比喻","擬人","誇張","排比"], a:0, ex:"用「像」把月亮比作玉盤，係比喻。", exe:"Simile — comparing the moon to a jade plate." },
+      { q:"形容詞一般用嚟做咩？", qe:"What do adjectives do?", o:["表示動作","修飾名詞","連接句子","表示感嘆"], a:1, ex:"形容詞修飾名詞，如「紅色的花」。", exe:"Adjectives describe nouns." },
+      { q:"「名副其實」嘅意思係？", qe:"What does 「名副其實」 mean?", o:["名不符實","名聲與實際相符","徒有虛名","名不虛傳（反義）"], a:1, ex:"名副其實=名聲同實際相符。", exe:"It means to live up to one's name." },
+      { q:"議論文嘅三個要素係？", qe:"What are the three elements of argumentation?", o:["論點、論據、論證","時間、地點、人物","起因、經過、結果","開頭、中間、結尾"], a:0, ex:"議論文三要素：論點、論據、論證。", exe:"Argumentation: claim, evidence, reasoning." },
+    ],
+    p6: [
+      { q:"「小明不但聰明，而且勤奮。」係咩複句？", qe:"What type of complex sentence is 「小明不但聰明，而且勤奮。」?", o:["並列","遞進","轉折","因果"], a:1, ex:"「不但…而且…」表示遞進關係。", exe:"不但…而且… expresses progression." },
+      { q:"閱讀理解中「歸納主旨」指咩？", qe:"What does 'summarising the main idea' mean?", o:["抄錄全文","找出中心思想","數一數字數","翻譯成英文"], a:1, ex:"歸納主旨係用簡潔文字概括文章中心思想。", exe:"It means capturing the central idea concisely." },
+      { q:"「口若懸河」形容咩？", qe:"What does 「口若懸河」 describe?", o:["沉默寡言","說話滔滔不絕","口乾舌燥","說話結巴"], a:1, ex:"口若懸河=說話滔滔不絕、口才好。", exe:"It describes fluent, eloquent speech." },
+      { q:"邊個標點用喺直接引用人哋嘅說話？", qe:"Which punctuation marks direct speech?", o:["引號「」","書名號《》","破折號——","省略號……"], a:0, ex:"直接引語用引號「」括住。", exe:"Quotation marks 「」 are used for direct speech." },
+    ],
+  },
+  eng: {
+    p1: [
+      { q:"Which word starts with the /b/ sound?", qe:"邊個字以 /b/ 音開頭？", o:["cat","ball","dog","sun"], a:1, ex:"'ball' begins with the /b/ sound.", exe:"'ball' 以 /b/ 音開頭。" },
+      { q:"___ is your name? (Choose the correct word.)", qe:"___ is your name?（揀正確嘅字）", o:["What","Where","Who","Why"], a:0, ex:"We ask 'What is your name?'", exe:"我哋問 'What is your name?'" },
+      { q:"Which is a colour?", qe:"邊個係顏色？", o:["table","red","run","three"], a:1, ex:"'red' is a colour.", exe:"'red' 係顏色。" },
+      { q:"I ___ a boy.", qe:"I ___ a boy.", o:["am","is","are","be"], a:0, ex:"With 'I', we use 'am'.", exe:"'I' 配 'am'。" },
+    ],
+    p2: [
+      { q:"She ___ to school every day.", qe:"She ___ to school every day.", o:["go","goes","going","gone"], a:1, ex:"Third-person singular in present simple takes -s: 'goes'.", exe:"第三人稱單數現在式加 -s：'goes'。" },
+      { q:"Which word is a verb?", qe:"邊個字係動詞？", o:["happy","run","blue","desk"], a:1, ex:"'run' is an action word (verb).", exe:"'run' 係動作（動詞）。" },
+      { q:"There ___ three apples.", qe:"There ___ three apples.", o:["is","am","are","be"], a:2, ex:"Use 'are' with plural nouns.", exe:"複數名詞用 'are'。" },
+      { q:"Choose the correct spelling:", qe:"揀正確嘅串法：", o:["aple","apple","appel","applle"], a:1, ex:"The correct spelling is 'apple'.", exe:"正確串法係 'apple'。" },
+    ],
+    p3: [
+      { q:"Look! The birds ___ flying.", qe:"Look! The birds ___ flying.", o:["is","are","am","be"], a:1, ex:"Present continuous with plural subject: 'are flying'.", exe:"複數主語現在進行式：'are flying'。" },
+      { q:"The opposite of 'big' is ___", qe:"'big' 嘅相反詞係 ___", o:["tall","small","long","old"], a:1, ex:"'small' is the opposite of 'big'.", exe:"'big' 相反係 'small'。" },
+      { q:"I ___ reading a book now.", qe:"I ___ reading a book now.", o:["am","is","are","was"], a:0, ex:"Present continuous with 'I': 'am reading'.", exe:"'I' 配 'am reading'。" },
+      { q:"Which is a noun?", qe:"邊個係名詞？", o:["jump","slowly","school","beautiful"], a:2, ex:"'school' is a noun (a person, place or thing).", exe:"'school' 係名詞。" },
+    ],
+    p4: [
+      { q:"Yesterday, I ___ to the park.", qe:"Yesterday, I ___ to the park.", o:["go","goes","went","gone"], a:2, ex:"Past tense of 'go' is 'went'.", exe:"'go' 嘅過去式係 'went'。" },
+      { q:"Which sentence is in the past tense?", qe:"邊句係過去式？", o:["I play now.","I played yesterday.","I am playing.","I will play."], a:1, ex:"'played' shows past tense.", exe:"'played' 表示過去式。" },
+      { q:"The past tense of 'eat' is ___", qe:"'eat' 嘅過去式係 ___", o:["eated","ate","eaten","eat"], a:1, ex:"'eat' → 'ate' (past).", exe:"'eat' 過去式係 'ate'。" },
+      { q:"Which word means 'very big'?", qe:"邊個字解「非常大」？", o:["tiny","huge","small","short"], a:1, ex:"'huge' means very big.", exe:"'huge' 解非常大。" },
+    ],
+    p5: [
+      { q:"Tomorrow, I ___ visit my grandma.", qe:"Tomorrow, I ___ visit my grandma.", o:["will","was","did","am"], a:0, ex:"Use 'will' for future tense.", exe:"將來式用 'will'。" },
+      { q:"An elephant is ___ than a mouse.", qe:"An elephant is ___ than a mouse.", o:["big","bigger","biggest","more big"], a:1, ex:"Comparative of 'big' is 'bigger'.", exe:"'big' 嘅比較級係 'bigger'。" },
+      { q:"Which is the superlative?", qe:"邊個係最高級？", o:["tall","taller","tallest","more tall"], a:2, ex:"'tallest' is the superlative form.", exe:"'tallest' 係最高級。" },
+      { q:"Choose the correct sentence:", qe:"揀正確嘅句子：", o:["He go to school.","He goes to school.","He going to school.","He gone to school."], a:1, ex:"Subject-verb agreement: 'He goes'.", exe:"主謂一致：'He goes'。" },
+    ],
+    p6: [
+      { q:"If it rains, I ___ stay at home.", qe:"If it rains, I ___ stay at home.", o:["will","was","did","am"], a:0, ex:"First conditional: 'If + present, will + verb'.", exe:"第一類條件句：'If + 現在式, will + 動詞'。" },
+      { q:"The passive form of 'They built the house' is:", qe:"'They built the house' 嘅被動式係：", o:["The house was built.","The house build.","The house is build.","The house built."], a:0, ex:"Passive: object + be + past participle.", exe:"被動式：賓語 + be + 過去分詞。" },
+      { q:"Which is a conjunction?", qe:"邊個係連接詞？", o:["because","apple","quickly","she"], a:0, ex:"'because' joins two clauses.", exe:"'because' 連接兩個分句。" },
+      { q:"'Nevertheless' means ___", qe:"'Nevertheless' 解 ___", o:["however","also","therefore","finally"], a:0, ex:"'Nevertheless' means 'however' (contrast).", exe:"'Nevertheless' 解「不過／然而」。" },
+    ],
+  },
+  math: {
+    p1: [
+      { q:"23 + 15 = ?", qe:"23 + 15 = ?", o:["38","37","28","48"], a:0, ex:"23 + 15 = 38。", exe:"23 + 15 = 38." },
+      { q:"邊個數最大？", qe:"Which number is the largest?", o:["45","54","39","87"], a:3, ex:"87 係四個數中最大。", exe:"87 is the largest." },
+      { q:"8 + 7 = ?", qe:"8 + 7 = ?", o:["14","15","16","17"], a:1, ex:"8 + 7 = 15。", exe:"8 + 7 = 15." },
+      { q:"以下邊個係三角形？", qe:"Which shape has 3 sides?", o:["正方形","三角形","圓形","長方形"], a:1, ex:"三角形有 3 條邊。", exe:"A triangle has 3 sides." },
+    ],
+    p2: [
+      { q:"3 × 5 = ?", qe:"3 × 5 = ?", o:["8","15","12","18"], a:1, ex:"3 × 5 = 15。", exe:"3 × 5 = 15." },
+      { q:"鐘面顯示 3:00，時針指向邊個數？", qe:"At 3:00, the hour hand points to which number?", o:["12","3","6","9"], a:1, ex:"3:00 時針指向 3，分針指向 12。", exe:"At 3:00 the hour hand points to 3." },
+      { q:"邊個係 10 嘅倍數？", qe:"Which is a multiple of 10?", o:["15","23","40","31"], a:2, ex:"40 = 10 × 4，係 10 嘅倍數。", exe:"40 = 10 × 4." },
+      { q:"1 米 = ? 厘米", qe:"1 metre = ? centimetres", o:["10","100","1000","50"], a:1, ex:"1 米 = 100 厘米。", exe:"1 m = 100 cm." },
+    ],
+    p3: [
+      { q:"24 ÷ 4 = ?", qe:"24 ÷ 4 = ?", o:["6","5","8","4"], a:0, ex:"24 ÷ 4 = 6。", exe:"24 ÷ 4 = 6." },
+      { q:"1/2 + 1/2 = ?", qe:"1/2 + 1/2 = ?", o:["1/4","1","2/2（即1）","1/2"], a:1, ex:"1/2 + 1/2 = 2/2 = 1。", exe:"1/2 + 1/2 = 1." },
+      { q:"長方形長 5cm、闊 3cm，周長係？", qe:"A rectangle is 5cm by 3cm. Its perimeter is?", o:["8cm","15cm","16cm","10cm"], a:2, ex:"周長 = 2 × (5+3) = 16cm。", exe:"Perimeter = 2 × (5+3) = 16 cm." },
+      { q:"邊個係分數？", qe:"Which is a fraction?", o:["3","3/4","0.5","100"], a:1, ex:"3/4 係分數（分子/分母）。", exe:"3/4 is a fraction." },
+    ],
+    p4: [
+      { q:"245 + 378 = ?", qe:"245 + 378 = ?", o:["613","623","603","633"], a:1, ex:"245 + 378 = 623。", exe:"245 + 378 = 623." },
+      { q:"0.5 化成分數係？", qe:"0.5 as a fraction is?", o:["1/5","1/2","5/10（即1/2）","1/4"], a:1, ex:"0.5 = 1/2。", exe:"0.5 = 1/2." },
+      { q:"正方形有幾多條相等嘅邊？", qe:"How many equal sides does a square have?", o:["2","3","4","6"], a:2, ex:"正方形 4 條邊相等。", exe:"A square has 4 equal sides." },
+      { q:"12 × 8 = ?", qe:"12 × 8 = ?", o:["96","88","104","86"], a:0, ex:"12 × 8 = 96。", exe:"12 × 8 = 96." },
+    ],
+    p5: [
+      { q:"1/3 + 1/6 = ?", qe:"1/3 + 1/6 = ?", o:["1/2","1/9","2/6","1/3"], a:0, ex:"1/3 = 2/6，2/6 + 1/6 = 3/6 = 1/2。", exe:"1/3 + 1/6 = 1/2." },
+      { q:"長方形長 6cm、闊 4cm，面積係？", qe:"A rectangle is 6cm by 4cm. Its area is?", o:["20 cm²","24 cm²","10 cm²","12 cm²"], a:1, ex:"面積 = 6 × 4 = 24 cm²。", exe:"Area = 6 × 4 = 24 cm²." },
+      { q:"數據：2、4、6、8，平均數係？", qe:"The mean of 2, 4, 6, 8 is?", o:["4","5","6","7"], a:1, ex:"(2+4+6+8) ÷ 4 = 5。", exe:"(2+4+6+8) ÷ 4 = 5." },
+      { q:"3/4 × 2 = ?", qe:"3/4 × 2 = ?", o:["3/2","3/8","6/4（即3/2）","2/3"], a:0, ex:"3/4 × 2 = 6/4 = 3/2。", exe:"3/4 × 2 = 3/2." },
+    ],
+    p6: [
+      { q:"25% 化成分數係？", qe:"25% as a fraction is?", o:["1/4","1/5","2/5","1/2"], a:0, ex:"25% = 25/100 = 1/4。", exe:"25% = 1/4." },
+      { q:"解方程：x + 5 = 12，x = ?", qe:"Solve: x + 5 = 12, x = ?", o:["5","7","17","6"], a:1, ex:"x = 12 - 5 = 7。", exe:"x = 12 - 5 = 7." },
+      { q:"一件衫原價 $200，八折後係？", qe:"A shirt costs $200 at 20% off. The sale price is?", o:["$160","$180","$140","$120"], a:0, ex:"八折 = 80%，$200 × 0.8 = $160。", exe:"$200 × 0.8 = $160." },
+      { q:"速率 = 路程 ÷ ?", qe:"Speed = distance ÷ ?", o:["時間","速度","重量","體積"], a:0, ex:"速率 = 路程 ÷ 時間。", exe:"Speed = distance ÷ time." },
+    ],
+  },
+  gs: {
+    p1: [
+      { q:"我哋用邊個感官嚟睇嘢？", qe:"Which sense do we use to see?", o:["耳","眼","鼻","舌"], a:1, ex:"用眼睛睇嘢。", exe:"We see with our eyes." },
+      { q:"邊個係健康嘅生活習慣？", qe:"Which is a healthy habit?", o:["夜瞓","食蔬果","唔刷牙","長時間睇電視"], a:1, ex:"食蔬果係健康習慣。", exe:"Eating fruit and vegetables is healthy." },
+      { q:"我哋每日應該刷幾多次牙？", qe:"How many times a day should we brush our teeth?", o:["0 次","1 次","2 次","5 次"], a:2, ex:"早晚刷牙，每日至少 2 次。", exe:"Brush at least twice a day." },
+      { q:"邊個係我哋屋企人？", qe:"Which one is a family member?", o:["醫生","爸爸","老師","警察"], a:1, ex:"爸爸係屋企人。", exe:"Father is a family member." },
+    ],
+    p2: [
+      { q:"邊個係社區設施？", qe:"Which is a community facility?", o:["圖書館","電視機","書枱","衣櫃"], a:0, ex:"圖書館係社區設施。", exe:"A library is a community facility." },
+      { q:"我哋應該點樣對待垃圾？", qe:"How should we treat waste?", o:["隨地丟","分類回收","丟落海","燒咗佢"], a:1, ex:"垃圾應分類回收，保護環境。", exe:"We should sort and recycle waste." },
+      { q:"邊個係愛護環境嘅做法？", qe:"Which action protects the environment?", o:["浪費食水","節約用電","亂砍樹木","污染河流"], a:1, ex:"節約用電係愛護環境。", exe:"Saving electricity helps the environment." },
+      { q:"救火應該打邊個電話？", qe:"Which number do we call for fire?", o:["999","911","110","123"], a:0, ex:"香港緊急求助電話係 999。", exe:"The emergency number in Hong Kong is 999." },
+    ],
+    p3: [
+      { q:"香港位於中國嘅邊個位置？", qe:"Where is Hong Kong located in China?", o:["南部","北部","西部","東北"], a:0, ex:"香港位於中國南部。", exe:"Hong Kong is in southern China." },
+      { q:"香港嘅區花係咩？", qe:"What is the floral emblem of Hong Kong?", o:["洋紫荊","蓮花","牡丹","菊花"], a:0, ex:"洋紫荊係香港區花。", exe:"The bauhinia is Hong Kong's floral emblem." },
+      { q:"以下邊個係香港嘅特色？", qe:"Which is a feature of Hong Kong?", o:["維多利亞港","撒哈拉沙漠","亞馬遜河","珠穆朗瑪峰"], a:0, ex:"維多利亞港係香港著名海港。", exe:"Victoria Harbour is a Hong Kong landmark." },
+      { q:"我哋應該點樣對待國旗？", qe:"How should we treat the national flag?", o:["尊重佢","丟棄佢","污損佢","不理會"], a:0, ex:"我哋應尊重國旗。", exe:"We should respect the national flag." },
+    ],
+    p4: [
+      { q:"水喺 0°C 會變成咩？", qe:"What does water become at 0°C?", o:["水蒸氣","冰","油","氣體"], a:1, ex:"水喺 0°C 會結冰。", exe:"Water freezes at 0°C." },
+      { q:"邊個係固體？", qe:"Which is a solid?", o:["水","空氣","木塊","氧氣"], a:2, ex:"木塊有固定形狀，係固體。", exe:"Wood has a fixed shape — it is a solid." },
+      { q:"做實驗時，我哋首先要？", qe:"What should we do first in an experiment?", o:["觀察同提問","亂咁試","跳過安全步驟","唔記錄"], a:0, ex:"科學探究：先觀察同提問。", exe:"Scientific inquiry starts with observation and questioning." },
+      { q:"糖溶喺水入面係咩變化？", qe:"Sugar dissolving in water is a ___ change?", o:["化學變化","物理變化","冇變化","爆炸"], a:1, ex:"糖溶於水係物理變化（可還原）。", exe:"Dissolving is a physical change." },
+    ],
+    p5: [
+      { q:"邊個係生物？", qe:"Which is a living thing?", o:["石頭","樹木","水","鐵"], a:1, ex:"樹木會生長、繁殖，係生物。", exe:"A tree grows and reproduces — it is living." },
+      { q:"植物進行光合作用需要咩？", qe:"What do plants need for photosynthesis?", o:["陽光","黑暗","噪音","電力"], a:0, ex:"光合作用需要陽光、水同二氧化碳。", exe:"Photosynthesis needs sunlight, water and CO₂." },
+      { q:"太陽能係邊種能源？", qe:"Solar energy is a ___ energy source?", o:["化石","可再生能源","耗竭能源","污染能源"], a:1, ex:"太陽能係可再生能源。", exe:"Solar energy is renewable." },
+      { q:"毛毛蟲變成蝴蝶嘅過程叫？", qe:"The process of a caterpillar becoming a butterfly is?", o:["蒸發","變態","燃燒","分解"], a:1, ex:"昆蟲嘅完全變態發育。", exe:"It is called metamorphosis." },
+    ],
+    p6: [
+      { q:"地球係太陽系嘅第幾顆行星？", qe:"Earth is the ___ planet from the Sun?", o:["第一","第三","第五","第八"], a:1, ex:"地球係由太陽數起第三顆行星。", exe:"Earth is the third planet from the Sun." },
+      { q:"月亮本身會唔會發光？", qe:"Does the Moon produce its own light?", o:["會","唔會，只反射陽光","有時會","唔知"], a:1, ex:"月亮唔會發光，只係反射太陽光。", exe:"The Moon reflects sunlight." },
+      { q:"邊個係國家嘅航天成就？", qe:"Which is a national space achievement?", o:["神舟飛船","泰坦尼克號","金字塔","埃菲爾鐵塔"], a:0, ex:"神舟飛船係中國航天成就。", exe:"The Shenzhou spacecraft is a Chinese achievement." },
+      { q:"地球大氣層嘅作用係？", qe:"What does Earth's atmosphere do?", o:["保護生物免受有害輻射","冇作用","令地球更熱","阻擋一切陽光"], a:0, ex:"大氣層保護生物、調節溫度。", exe:"The atmosphere protects life and regulates temperature." },
+    ],
+  },
+};
