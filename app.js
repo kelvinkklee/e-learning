@@ -327,11 +327,11 @@ function handleDeepLink(){
 /* 供應商預設配置 */
 const AI_PROVIDERS = {
   huawei: {
-    endpoint: "https://api.modelarts-maas.com/v2/chat/completions",
-    model: "openpangu-2.0-pro",
+    endpoint: "https://api-ap-southeast-1.modelarts-maas.com/openai/v1",
+    model: "glm-5.2",
   },
   openai: {
-    endpoint: "https://api.openai.com/v1/chat/completions",
+    endpoint: "https://api.openai.com/v1",
     model: "gpt-4o-mini",
   },
   custom: {
@@ -339,6 +339,16 @@ const AI_PROVIDERS = {
     model: "",
   }
 };
+
+/* 將 endpoint 標準化：若以 /openai/v1 或 /v1 結尾（base_url），自動拼 /chat/completions */
+function normalizeEndpoint(ep){
+  if(!ep) return '';
+  ep = ep.trim().replace(/\/+$/,'');
+  if(/\/chat\/completions$/i.test(ep)) return ep; // 已是完整 endpoint
+  if(/\/v1$/i.test(ep) || /\/openai\/v1$/i.test(ep)) return ep + '/chat/completions';
+  // 其他情況：視為 base_url，拼 /chat/completions
+  return ep + '/chat/completions';
+}
 
 function getAISettings(){
   try{
@@ -393,6 +403,7 @@ function getAI(){
 async function callLLM(messages, { json=false, maxTokens=1500 } = {}){
   const ai = getAI();
   if(!ai.key) throw new Error('NO_KEY');
+  const url = normalizeEndpoint(ai.endpoint);
   const body = {
     model: ai.model,
     messages: messages,
@@ -402,7 +413,7 @@ async function callLLM(messages, { json=false, maxTokens=1500 } = {}){
   if(json){
     body.response_format = { type: 'json_object' };
   }
-  const resp = await fetch(ai.endpoint, {
+  const resp = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
