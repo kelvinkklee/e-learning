@@ -419,8 +419,10 @@ function getAI(){
 /* 通用 LLM 調用（OpenAI 兼容 /chat/completions） */
 async function callLLM(messages, { json=false, maxTokens=1500 } = {}){
   const ai = getAI();
-  if(!ai.key) throw new Error('NO_KEY');
   const url = normalizeEndpoint(ai.endpoint);
+  // 判斷係咪經 Worker 代理（代理有內置 secret，key 可選）
+  const isProxy = /\.workers\.dev/i.test(url);
+  if(!ai.key && !isProxy) throw new Error('NO_KEY');
   const body = {
     model: ai.model,
     messages: messages,
@@ -434,12 +436,13 @@ async function callLLM(messages, { json=false, maxTokens=1500 } = {}){
   if(json){
     body.response_format = { type: 'json_object' };
   }
+  const headers = { 'Content-Type': 'application/json' };
+  if(ai.key){
+    headers['Authorization'] = 'Bearer ' + ai.key;
+  }
   const resp = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + ai.key,
-    },
+    headers: headers,
     body: JSON.stringify(body),
   });
   if(!resp.ok){
@@ -456,7 +459,8 @@ async function callLLM(messages, { json=false, maxTokens=1500 } = {}){
 async function testAIConnection(){
   const ai = getAI();
   const st = $('aiStatus');
-  if(!ai.key){
+  const isProxy = /\.workers\.dev/i.test(normalizeEndpoint(ai.endpoint));
+  if(!ai.key && !isProxy){
     st.className = 'ai-status err';
     st.textContent = t('aiFillKey');
     return;
@@ -482,7 +486,8 @@ async function testAIConnection(){
 /* AI 出題：生成選擇題 */
 async function aiGenerate(){
   const ai = getAI();
-  if(!ai.key){ installToast(t('aiNoKey')); go('settings'); return; }
+  const isProxy = /\.workers\.dev/i.test(normalizeEndpoint(ai.endpoint));
+  if(!ai.key && !isProxy){ installToast(t('aiNoKey')); go('settings'); return; }
 
   // 收集題材
   const topic = prompt(t('aiGenTopic'), '');
@@ -549,7 +554,8 @@ async function aiGenerate(){
 /* AI 批改 + 錯題分析 */
 async function aiAnalyze(){
   const ai = getAI();
-  if(!ai.key){ installToast(t('aiNoKey')); go('settings'); return; }
+  const isProxy = /\.workers\.dev/i.test(normalizeEndpoint(ai.endpoint));
+  if(!ai.key && !isProxy){ installToast(t('aiNoKey')); go('settings'); return; }
 
   // 收集錯題
   const wrong = [];

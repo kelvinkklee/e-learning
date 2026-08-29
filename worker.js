@@ -1,9 +1,8 @@
 // 香港小學樂學 - LLM 後端代理 (Cloudflare Worker)
 // 作用：代理前端請求去華為 MaaS，繞過 CORS 預檢問題，並保護 API key
 //
-// 部署後，喺 App 嘅「AI 設定」入面：
-//   Endpoint 填：https://<你的-worker>.workers.dev
-//   API Key 填：你嘅華為 MaaS key（仍然存喺用戶本機，唔經 Worker 儲存）
+// API Key 已用 Cloudflare Secret 加密儲存（HUAWEI_MAAS_API_KEY），
+// 前端唔需要傳 key，用戶零配置即用。
 
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
@@ -39,11 +38,13 @@ async function handleRequest(request) {
   }
 
   try {
-    // 讀取前端傳嚟嘅請求體（包含 messages、model 等）
     const body = await request.json();
 
-    // 提取 API key（由前端傳嚟，Worker 不儲存）
-    const apiKey = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') || body.api_key;
+    // 優先使用 Worker 內置嘅加密 secret（用戶零配置）
+    // 如前端有傳 key（用戶自訂），則覆蓋使用
+    const apiKey = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
+      || body.api_key
+      || HUAWEI_MAAS_API_KEY;
 
     if (!apiKey) {
       return new Response(JSON.stringify({ error: '缺少 API Key' }), {
