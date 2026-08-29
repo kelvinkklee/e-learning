@@ -199,11 +199,14 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
   .wrap{padding:14px 12px 80px}
 }
 </style>
+<link rel="stylesheet" href="game.css">
 </head>
 <body>
+<div class="bubbles" id="bubbles"></div>
 <div class="topbar">
-  <div class="logo"><span class="dot">📚</span><span data-i18n="appName">香港小學樂學</span></div>
+  <div class="logo"><span class="dot">🦉</span><span data-i18n="appName">香港小學樂學</span></div>
   <div class="spacer"></div>
+  <div class="coinbar" id="coinBar">🪙 <span id="coinCount">0</span></div>
   <button class="iconbtn" id="aiSetBtn" onclick="go('settings')" title="AI 設定">🤖</button>
   <button class="langbtn" onclick="toggleLang()"><span id="langIco">中</span><span data-i18n="lang">中文</span></button>
 </div>
@@ -212,6 +215,7 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
   <!-- ===== HOME ===== -->
   <div id="home">
     <div class="hero">
+      <div class="mascot" id="mascot"></div>
       <h1><span data-i18n="heroTitle">開心學，</span><span class="grad" data-i18n="heroGrad">打好基礎</span></h1>
       <p data-i18n="heroSub">內容對照香港教育局《小學教育課程指引》(2024) 及各科課程指引設計，覆蓋小一至小六。</p>
       <div class="badge-row">
@@ -222,7 +226,7 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
       </div>
     </div>
 
-    <div class="sect"><span class="bar"></span><h2 data-i18n="pickGrade">揀年級</h2></div>
+    <div class="sect"><span class="bar"></span><h2 data-i18n="pickGrade">揀年級</h2><span class="emoji">🎓</span></div>
     <div class="grades" id="gradeList"></div>
 
     <div class="sect"><span class="bar"></span><h2 data-i18n="pickSubject">揀科目</h2></div>

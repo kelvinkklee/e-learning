@@ -4,6 +4,8 @@
 
 let LANG = localStorage.getItem('hkpl_lang') || 'zh';
 let PROGRESS = JSON.parse(localStorage.getItem('hkpl_progress') || '{}');
+let COINS = parseInt(localStorage.getItem('hkpl_coins') || '0', 10);
+let STREAK = 0;  // 連擊次數
 
 let state = {
   subject: null,   // 科目 id
@@ -221,7 +223,15 @@ function choose(i){
   state.answers[state.idx] = i;
   if(i === q.a){
     state.correct++;
-    // 簡單音效可選，略
+    STREAK++;
+    // 答對：加金幣、連擊特效、音效、星星
+    addCoins(10);
+    playSound('correct');
+    spawnConfetti();
+    if(STREAK >= 2){ showCombo(STREAK); }
+  } else {
+    STREAK = 0;
+    playSound('wrong');
   }
   renderQuestion();
 }
@@ -297,6 +307,9 @@ function installToast(msg){
 render();
 initInstallUI();
 handleDeepLink();
+initBubbles();
+initMascot();
+updateCoinBar();
 
 function initInstallUI(){
   // 於首頁插入安裝按鈕列
@@ -632,4 +645,112 @@ function showAIReport(markdown){
 function closeAIReport(){
   const modal = $('aiReportModal');
   if(modal) modal.style.display = 'none';
+}
+
+/* ============================================================
+   遊戲化系統：金幣、連擊、音效、星星、氣泡、吉祥物
+   ============================================================ */
+
+function addCoins(n){
+  COINS += n;
+  localStorage.setItem('hkpl_coins', COINS);
+  updateCoinBar();
+}
+function updateCoinBar(){
+  const el = $('coinCount');
+  if(el) el.textContent = COINS;
+}
+
+/* 音效（Web Audio 合成，唔使外置檔案） */
+let audioCtx = null;
+function playSound(type){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if(type === 'correct'){
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(784, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(); osc.stop(ctx.currentTime + 0.3);
+    } else {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start(); osc.stop(ctx.currentTime + 0.25);
+    }
+  }catch(e){ /* 音效失敗唔影響功能 */ }
+}
+
+function spawnConfetti(){
+  const emojis = ['⭐','🌟','✨','💫','🎉'];
+  for(let i=0;i<6;i++){
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    el.style.left = (10 + Math.random()*80) + '%';
+    el.style.top = (20 + Math.random()*40) + '%';
+    el.style.fontSize = (18 + Math.random()*18) + 'px';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 1500);
+  }
+}
+
+function showCombo(n){
+  const el = document.createElement('div');
+  el.className = 'combo';
+  el.textContent = '🔥 ' + n + ' 連擊!';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 800);
+}
+
+/* 氣泡背景 */
+function initBubbles(){
+  const wrap = $('bubbles');
+  if(!wrap) return;
+  const colors = ['#fde68a','#ddd6fe','#fbcfe8','#bfdbfe','#bbf7d0'];
+  for(let i=0;i<12;i++){
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const size = 20 + Math.random()*60;
+    b.style.width = size + 'px';
+    b.style.height = size + 'px';
+    b.style.left = Math.random()*100 + '%';
+    b.style.top = Math.random()*100 + '%';
+    b.style.background = colors[i % colors.length];
+    b.style.animationDuration = (6 + Math.random()*6) + 's';
+    b.style.animationDelay = (Math.random()*4) + 's';
+    wrap.appendChild(b);
+  }
+}
+
+/* 吉祥物（可愛貓頭鷹 SVG） */
+function initMascot(){
+  const el = $('mascot');
+  if(!el) return;
+  el.innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="50" cy="58" rx="34" ry="32" fill="#7c3aed"/>
+    <ellipse cx="50" cy="60" rx="24" ry="22" fill="#a78bfa"/>
+    <ellipse cx="50" cy="62" rx="18" ry="16" fill="#f5f3ff"/>
+    <circle cx="38" cy="38" r="12" fill="#fff"/>
+    <circle cx="62" cy="38" r="12" fill="#fff"/>
+    <circle cx="40" cy="40" r="6" fill="#3d2b4f"/>
+    <circle cx="64" cy="40" r="6" fill="#3d2b4f"/>
+    <circle cx="41" cy="39" r="2.2" fill="#fff"/>
+    <circle cx="65" cy="39" r="2.2" fill="#fff"/>
+    <path d="M50 46 L46 54 L54 54 Z" fill="#f97316"/>
+    <path d="M20 58 L50 70 L80 58" fill="none" stroke="#f43f5e" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="20" cy="40" rx="5" ry="3" fill="#f97316"/>
+    <ellipse cx="80" cy="40" rx="5" ry="3" fill="#f97316"/>
+    <path d="M28 20 L32 10 L38 20 Z" fill="#f43f5e"/>
+    <path d="M62 20 L68 10 L72 20 Z" fill="#f43f5e"/>
+    <circle cx="34" cy="80" r="5" fill="#f97316"/>
+    <circle cx="66" cy="80" r="5" fill="#f97316"/>
+  </svg>`;
 }
