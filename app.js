@@ -327,6 +327,11 @@ function handleDeepLink(){
 /* 供應商預設配置 */
 const AI_PROVIDERS = {
   huawei: {
+    // 經 Cloudflare Worker 代理（繞過 CORS 預檢限制）
+    endpoint: "https://hk-learning-llm-proxy.kelvinkklee-hk-learning.workers.dev",
+    model: "glm-5.2",
+  },
+  huawei_direct: {
     endpoint: "https://api-ap-southeast-1.modelarts-maas.com/openai/v1",
     model: "glm-5.2",
   },
@@ -340,11 +345,13 @@ const AI_PROVIDERS = {
   }
 };
 
-/* 將 endpoint 標準化：若以 /openai/v1 或 /v1 結尾（base_url），自動拼 /chat/completions */
+/* 將 endpoint 標準化：若以 /openai/v1 或 /v1 結尾（base_url），自動拼 /chat/completions；
+   若係完整代理地址（如 Cloudflare Worker），直接使用唔拼 */
 function normalizeEndpoint(ep){
   if(!ep) return '';
   ep = ep.trim().replace(/\/+$/,'');
   if(/\/chat\/completions$/i.test(ep)) return ep; // 已是完整 endpoint
+  if(/\.workers\.dev$/i.test(ep)) return ep;      // Worker 代理地址，直接使用
   if(/\/v1$/i.test(ep) || /\/openai\/v1$/i.test(ep)) return ep + '/chat/completions';
   // 其他情況：視為 base_url，拼 /chat/completions
   return ep + '/chat/completions';
@@ -393,7 +400,17 @@ function saveAISettings(){
 }
 
 function getAI(){
-  const s = getAISettings();
+  let s = getAISettings();
+  // 若設定頁欄位存在，優先讀取即時輸入（用戶可能未撳儲存）
+  const el = $('aiKey');
+  if(el){
+    s = {
+      provider: $('aiProvider') ? $('aiProvider').value : (s.provider || 'huawei'),
+      endpoint: $('aiEndpoint') ? $('aiEndpoint').value.trim() : s.endpoint,
+      model: $('aiModel') ? $('aiModel').value.trim() : s.model,
+      key: el.value.trim(),
+    };
+  }
   if(!s.endpoint) s.endpoint = AI_PROVIDERS.huawei.endpoint;
   if(!s.model) s.model = AI_PROVIDERS.huawei.model;
   return s;
@@ -453,6 +470,9 @@ async function testAIConnection(){
     ], { maxTokens: 50 });
     st.className = 'ai-status ok';
     st.textContent = t('aiTestOk') + ' · ' + content.slice(0, 60);
+    // 測試成功，自動儲存設定，方便後續出題
+    saveAISettings();
+    st.textContent = t('aiTestOk') + ' · ' + content.slice(0, 60) + ' （已自動儲存）';
   }catch(e){
     st.className = 'ai-status err';
     st.textContent = t('aiTestFail') + (e.message === 'NO_KEY' ? t('aiFillKey') : e.message);

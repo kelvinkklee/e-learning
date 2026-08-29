@@ -272,13 +272,14 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
     <div class="qcard">
       <label class="field"><span data-i18n="aiProvider">供應商</span>
         <select id="aiProvider" onchange="onProviderChange()">
-          <option value="huawei">華為雲 MaaS (Huawei Cloud)</option>
+          <option value="huawei">華為雲 MaaS（經代理，推薦）</option>
+          <option value="huawei_direct">華為雲 MaaS（直連）</option>
           <option value="openai">OpenAI 兼容 (OpenAI-compatible)</option>
           <option value="custom">自訂 (Custom)</option>
         </select>
       </label>
       <label class="field"><span data-i18n="aiEndpoint">API Endpoint</span>
-        <input id="aiEndpoint" type="text" placeholder="https://api-ap-southeast-1.modelarts-maas.com/openai/v1" autocomplete="off">
+        <input id="aiEndpoint" type="text" placeholder="https://hk-learning-llm-proxy.kelvinkklee-hk-learning.workers.dev" autocomplete="off">
       </label>
       <label class="field"><span data-i18n="aiModel">模型名稱 (Model)</span>
         <input id="aiModel" type="text" placeholder="glm-5.2" autocomplete="off">
