@@ -1,4 +1,4 @@
-const CACHE = 'hkpl-v4';
+const CACHE = 'hkpl-v5';
 const ASSETS = ['./','./index.html','./data.js','./app.js','./game.css','./manifest.json','./icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-192.png','./icons/icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
